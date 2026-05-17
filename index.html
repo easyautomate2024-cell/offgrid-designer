@@ -3445,4 +3445,17 @@ function App(){
                   style={{padding:'6px 14px',...(b.color?{background:b.color,borderColor:b.color}:{})}}
                   onClick={()=>{const fn=b.onClick;setConfirmDlg(null);if(fn)fn();}}>{b.label}</button>
               )):<>
-                <button className="btn btn-outline" style={{padding
+                <button className="btn btn-outline" style={{padding:'6px 14px'}} onClick={()=>setConfirmDlg(null)}>キャンセル</button>
+                <button className="btn btn-primary" style={{padding:'6px 14px'}} onClick={()=>{const fn=confirmDlg.onOk;setConfirmDlg(null);if(fn)fn();}}>OK</button>
+              </>
+            }
+            </div>
+          </div>
+        </div>
+      )}
+    </>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
