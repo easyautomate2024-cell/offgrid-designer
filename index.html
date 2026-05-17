@@ -3275,8 +3275,8 @@ function App(){
                           ]
                         });
                       },500);
-                      const cleanup=()=>{clearTimeout(tid);document.removeEventListener('pointerup',cleanup);document.removeEventListener('pointermove',onMv);if(!longPressed){onWireSegMouseDown(e,c.id);}};
-                      const onMv=ev=>{if(Math.abs(ev.clientX-sx)>6||Math.abs(ev.clientY-sy)>6){clearTimeout(tid);document.removeEventListener('pointermove',onMv);if(!longPressed){onWireSegMouseDown(e,c.id);}}};
+                      const cleanup=()=>{clearTimeout(tid);document.removeEventListener('pointerup',cleanup);document.removeEventListener('pointermove',onMv);};
+                      const onMv=ev=>{if(Math.abs(ev.clientX-sx)>6||Math.abs(ev.clientY-sy)>6){clearTimeout(tid);document.removeEventListener('pointermove',onMv);}};
                       document.addEventListener('pointerup',cleanup,{once:true});
                       document.addEventListener('pointermove',onMv);
                     }}
@@ -3444,4 +3444,5 @@ function App(){
                   style={{padding:'6px 14px',...(b.color?{background:b.color,borderColor:b.color}:{})}}
                   onClick={()=>{const fn=b.onClick;setConfirmDlg(null);if(fn)fn();}}>{b.label}</button>
               )):<>
-                <button className="btn btn-outline" style={{padding:'6px 14px'}} onClick={()=>setConfirmDlg(null)}>キャンセル</butt
+                <button className="btn btn-outline" style={{padding:'6px 14px'}} onClick={()=>setConfirmDlg(null)}>キャンセル</button>
+                <button className="btn btn-primary" style={{padding:'6px 14px'}} onCli
