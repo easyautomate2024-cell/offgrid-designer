@@ -1,0 +1,3448 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>オフグリッド電気設計ツール</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e293b;height:100vh;overflow:hidden;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#root{height:100vh;display:flex;flex-direction:column}
+.hdr{background:#0f172a;color:white;padding:9px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.hdr-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+.hdr-sub{font-size:10px;color:#64748b;margin-top:1px}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.btn{padding:5px 11px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:.15s;white-space:nowrap;line-height:1.4}
+.btn-primary{background:#3b82f6;color:white}.btn-primary:hover{background:#2563eb}
+.btn-success{background:#22c55e;color:white}.btn-success:hover{background:#16a34a}
+.btn-check{background:#8b5cf6;color:white}.btn-check:hover{background:#7c3aed}
+.btn-outline{background:transparent;color:#cbd5e1;border:1px solid rgba(255,255,255,.2)}.btn-outline:hover{background:rgba(255,255,255,.1)}
+.btn-ghost{background:transparent;color:#64748b;border:1px solid #e2e8f0}.btn-ghost:hover{background:#f8fafc}
+.btn-danger{background:#ef4444;color:white}.btn-danger:hover{background:#dc2626}
+.btn-warn{background:#f59e0b;color:white}.btn-warn:hover{background:#d97706}
+.btn-sm{padding:3px 8px;font-size:11px}
+.volt-sel{padding:4px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:white;font-size:12px;cursor:pointer}
+.volt-sel option{background:#1e293b}
+.vlbl{font-size:10px;color:#94a3b8}
+.body{display:flex;flex:1;overflow:hidden;position:relative}
+/* Palette */
+.pal{width:148px;background:white;border-right:1px solid #e2e8f0;overflow-y:auto;flex-shrink:0;padding:7px}
+.pal-cat{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;padding:0 2px;margin-bottom:4px}
+.pal-sec{margin-bottom:9px}
+.pal-item{padding:6px;border-radius:6px;border:1.5px solid #e2e8f0;margin-bottom:3px;cursor:grab;user-select:none;display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:500;transition:.13s;background:white}
+.pal-item:hover{border-color:#3b82f6;background:#eff6ff;box-shadow:0 0 0 2px rgba(59,130,246,.12)}
+.pal-item:active{cursor:grabbing}
+.p-ico{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+/* Canvas */
+.cvs-wrap{flex:1;overflow:hidden;position:relative;background:#f8fafc}
+.cvs-bg{position:absolute;inset:0;background-image:radial-gradient(circle,#cbd5e1 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+.cvs-svg{position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible}
+.cvs-nodes{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.cvs-handles{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+/* Node */
+.nd{position:absolute;border-radius:8px;border:2px solid;pointer-events:all;user-select:none}
+.nd.sel{outline:3px solid #3b82f6;outline-offset:2px;z-index:50}
+.nd.port-edit-mode{outline:3px solid #f59e0b;outline-offset:2px;z-index:50}
+.nd-body{padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:6px;cursor:move;position:relative;width:100%;height:100%;justify-content:center}
+.nd-ico{font-size:19px;line-height:1}
+.nd-ico img{width:28px;height:28px;object-fit:contain}
+.nd-lbl{font-size:10px;font-weight:700;text-align:center;line-height:1.2;white-space:nowrap}
+.nd-name{font-size:9px;color:#64748b;text-align:center;white-space:normal;max-width:120px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+.nd-spec{font-size:10px;font-weight:700;text-align:center;margin-top:1px}
+.nd-del{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:white;border:2px solid white;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;z-index:60}
+.nd-del:hover{background:#dc2626}
+.nd-resize{position:absolute;bottom:0;right:0;width:16px;height:16px;cursor:nwse-resize;z-index:65;border-radius:0 0 6px 0}
+.nd-resize::after{content:'';position:absolute;bottom:3px;right:3px;width:0;height:0;border-style:solid;border-width:0 0 9px 9px;border-color:transparent transparent #94a3b8 transparent}
+.nd-resize:hover::after{border-color:transparent transparent #3b82f6 transparent}
+.port-edit-badge{position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#f59e0b;color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:70}
+/* Ports */
+.port{position:absolute;width:13px;height:13px;border-radius:50%;border:2px solid white;cursor:crosshair;z-index:20;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.2);transition:.1s}
+.port:hover{transform:translate(-50%,-50%) scale(1.5);box-shadow:0 0 0 3px rgba(59,130,246,.45)}
+.port.drawing-src{transform:translate(-50%,-50%) scale(1.5);box-shadow:0 0 0 4px rgba(251,191,36,.6)}
+.port.can-target{animation:portPulse .75s infinite}
+.port.edit-mode{cursor:move !important;box-shadow:0 0 0 3px rgba(245,158,11,.5)}
+.port-lbl{position:absolute;font-size:8px;font-weight:700;color:#475569;pointer-events:none;user-select:none;z-index:21;white-space:nowrap}
+@keyframes portPulse{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.5)}50%{box-shadow:0 0 0 7px rgba(34,197,94,.12)}}
+@keyframes wireBlink{0%,100%{opacity:1}50%{opacity:.35}}
+.wire-warn{animation:wireBlink 1s ease-in-out infinite}
+@keyframes wireHaloPulse{0%,100%{stroke-opacity:.15}50%{stroke-opacity:.45}}
+.wire-warn-halo{animation:wireHaloPulse 1s ease-in-out infinite}
+/* Waypoint handles */
+.wp-handle{position:absolute;width:16px;height:16px;background:white;border:2px solid #3b82f6;border-radius:3px;transform:translate(-50%,-50%) rotate(45deg);cursor:move;pointer-events:all;z-index:82;transition:.1s}
+.wp-handle:hover{background:#eff6ff;border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+.add-wp{position:absolute;width:14px;height:14px;border-radius:50%;background:white;border:2px solid #64748b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;pointer-events:all;z-index:81;transform:translate(-50%,-50%);transition:.13s;line-height:1;opacity:.7}
+.add-wp:hover{opacity:1;border-color:#3b82f6;color:#3b82f6;transform:translate(-50%,-50%) scale(1.2)}
+.port-ghost{position:absolute;width:14px;height:14px;border-radius:50%;border:2.5px dashed white;transform:translate(-50%,-50%);pointer-events:none;z-index:100;animation:ghostPulse .5s infinite}
+@keyframes ghostPulse{0%,100%{box-shadow:0 0 0 3px rgba(245,158,11,.6)}50%{box-shadow:0 0 0 7px rgba(245,158,11,.1)}}
+.edge-hl{position:absolute;background:rgba(245,158,11,.45);border-radius:2px;pointer-events:none;z-index:99}
+/* Right panel */
+.rpanel{width:260px;background:white;border-left:1px solid #e2e8f0;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
+.psec{padding:13px;border-bottom:1px solid #f1f5f9}
+.ptitle{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px}
+.prow{margin-bottom:7px}
+.plbl{font-size:10.5px;color:#94a3b8;font-weight:500;margin-bottom:2px}
+.pinput,.psel{width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:white}
+.pinput:focus,.psel:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
+.row2{display:flex;gap:6px}.row2 .prow{flex:1}
+/* Color swatches */
+.color-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.cswatch{width:22px;height:22px;border-radius:4px;cursor:pointer;border:2.5px solid transparent;transition:.1s;flex-shrink:0}
+.cswatch.active{border-color:#0f172a;transform:scale(1.2)}
+.cswatch:hover:not(.active){border-color:#94a3b8;transform:scale(1.1)}
+/* Thickness slider */
+.thick-row{display:flex;align-items:center;gap:8px}
+.thick-slider{flex:1;accent-color:#3b82f6}
+.thick-val{font-size:11px;font-weight:700;color:#1d4ed8;min-width:28px;text-align:right}
+/* Gauge card */
+.gc{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:11px;margin-top:6px}
+.gc-big{font-size:21px;font-weight:800;color:#0369a1}
+.gc-row{display:flex;justify-content:space-between;font-size:11px;color:#0891b2;margin-top:2px}
+.gc-warn{background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:7px;font-size:10.5px;color:#854d0e;margin-top:5px}
+.fc{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:9px;margin-top:6px}
+.fc-big{font-size:17px;font-weight:800;color:#c2410c}
+.wg-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.wg-field label{font-size:10px;color:#94a3b8;display:block;margin-bottom:2px}
+.wg-field input{width:100%;padding:5px 7px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px}
+/* BOM Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:white;border-radius:12px;width:100%;max-width:860px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3)}
+.mhd{padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.mttl{font-size:15px;font-weight:700;flex:1}
+.mbody{flex:1;overflow-y:auto;padding:18px}
+.mfoot{padding:12px 18px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:8px;flex-wrap:wrap}
+.bom-tbl{width:100%;border-collapse:collapse}
+.bom-tbl th{background:#f8fafc;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;padding:7px 11px;text-align:left;border-bottom:2px solid #e2e8f0;white-space:nowrap}
+.bom-tbl td{padding:9px 11px;border-bottom:1px solid #f1f5f9;font-size:12.5px;vertical-align:middle}
+.bom-tbl tr:last-child td{border-bottom:none}
+.bom-tbl tbody tr:hover td{background:#f8fafc}
+.aff-link{display:inline-flex;align-items:center;gap:3px;color:#3b82f6;text-decoration:none;font-size:11.5px;padding:3px 9px;border-radius:5px;background:#eff6ff;border:1px solid #bfdbfe;font-weight:500}
+.aff-link:hover{background:#dbeafe}
+/* Amazon CTA – オレンジで購買意欲を喚起 */
+.aff-primary{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;text-decoration:none;background:linear-gradient(180deg,#ffd874 0%,#f0a93c 60%,#dd8c1a 100%);color:#0f172a;font-weight:700;padding:6px 11px;border-radius:6px;border:1px solid #c8851a;box-shadow:0 1px 0 rgba(255,255,255,.4) inset, 0 1px 2px rgba(0,0,0,.15);transition:.12s;min-width:118px}
+.aff-primary:hover{background:linear-gradient(180deg,#ffe089 0%,#f4b54f 60%,#e89622 100%);transform:translateY(-1px);box-shadow:0 1px 0 rgba(255,255,255,.5) inset, 0 3px 6px rgba(0,0,0,.18)}
+.aff-primary .pri-top{font-size:12px;line-height:1.2;display:flex;align-items:center;gap:4px}
+.aff-primary .pri-sub{font-size:9.5px;color:#7c2d12;font-weight:600;line-height:1.2}
+.aff-alts{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.aff-alt{font-size:9.5px;color:#64748b;text-decoration:none;padding:2px 6px;border:1px solid #e2e8f0;border-radius:3px;background:#f8fafc;white-space:nowrap;font-weight:500}
+.aff-alt:hover{color:#dd8c1a;border-color:#f0a93c;background:#fef3c7}
+.prime-badge{display:inline-block;font-size:9px;font-weight:700;color:#0066c0;background:#fff;border:1px solid #0066c0;padding:1px 4px;border-radius:3px;margin-left:4px;line-height:1.1}
+.aff-bulk{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(180deg,#ffd874,#dd8c1a);color:#0f172a;font-weight:700;padding:8px 16px;border-radius:8px;border:1px solid #c8851a;text-decoration:none;font-size:13px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.aff-bulk:hover{background:linear-gradient(180deg,#ffe089,#e89622);transform:translateY(-1px)}
+.subtotal-cell{font-weight:700;color:#0f172a;font-size:13px}
+.subtotal-cell .qty-x{color:#64748b;font-weight:500;font-size:11px;margin-right:3px}
+/* Check Modal */
+.check-summary{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:14px;font-weight:700}
+.cs-ok{background:#f0fdf4;border:1.5px solid #86efac;color:#166534}
+.cs-warn{background:#fefce8;border:1.5px solid #fde047;color:#854d0e}
+.cs-err{background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b}
+.chk-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:6px;border:1px solid}
+.chk-ok{background:#f0fdf4;border-color:#bbf7d0}
+.chk-warn{background:#fefce8;border-color:#fde047}
+.chk-err{background:#fef2f2;border-color:#fecaca}
+.chk-info{background:#f0f9ff;border-color:#bae6fd}
+.chk-icon{font-size:16px;flex-shrink:0;line-height:1.4}
+.chk-title{font-size:12.5px;font-weight:600;line-height:1.4}
+.chk-details{margin-top:4px}
+.chk-detail-row{font-size:11px;color:#64748b;padding:1px 0;line-height:1.5}
+.chk-cat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin:12px 0 5px;padding-left:2px}
+/* Simulation Modal */
+.sim-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:10px}
+.sim-card-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.sim-big{font-size:28px;font-weight:800;line-height:1}
+.sim-unit{font-size:13px;font-weight:600;color:#64748b;margin-left:3px}
+.sim-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+.sim-row:last-child{border-bottom:none}
+.sim-row .lbl{color:#64748b}
+.sim-row .val{font-weight:700;color:#0f172a}
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sim-load-row{display:grid;grid-template-columns:1fr 70px 60px 80px;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #f1f5f9;font-size:12px}
+.sim-load-row:last-child{border-bottom:none}
+.sim-load-row input{width:100%;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;text-align:right}
+.sim-hours-range{flex:1;accent-color:#3b82f6}
+.sim-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;border-radius:10px;text-align:center}
+.sim-stat-val{font-size:24px;font-weight:800;line-height:1}
+.sim-stat-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;opacity:.8}
+.sim-stat-good{background:#dcfce7;color:#166534}
+.sim-stat-warn{background:#fef9c3;color:#854d0e}
+.sim-stat-bad{background:#fee2e2;color:#991b1b}
+.sim-stat-info{background:#dbeafe;color:#1e40af}
+.sim-bar{height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden;margin-top:4px}
+.sim-bar-fill{height:100%;transition:width .3s}
+/* Settings */
+.srow{margin-bottom:12px}
+.slbl{font-size:13px;font-weight:600;margin-bottom:3px}
+.sdesc{font-size:11px;color:#94a3b8;margin-bottom:5px}
+.sinput{width:100%;padding:7px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px}
+.empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#94a3b8;pointer-events:auto;max-width:90%}
+.sample-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:18px;max-width:560px}
+.sample-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px;cursor:pointer;text-align:left;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.sample-card:hover{border-color:#3b82f6;box-shadow:0 4px 12px rgba(59,130,246,.15);transform:translateY(-1px)}
+.sample-card-title{font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.sample-card-desc{font-size:11px;color:#64748b;line-height:1.5}
+.sample-card-spec{font-size:10px;color:#0891b2;margin-top:6px;font-weight:600}
+.empty-ico{font-size:50px;opacity:.3;margin-bottom:10px}
+.empty-t{font-size:15px;font-weight:600;margin-bottom:5px}
+.empty-s{font-size:12.5px;line-height:1.7}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:white;padding:9px 18px;border-radius:8px;font-size:12.5px;z-index:400;pointer-events:none;animation:tin .2s}
+@keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* タッチデバイスでのスクロール抑制（ノードドラッグ中） */
+.nd,.port,.wp-handle{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.cvs-wrap{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.cvs-svg,.cvs-nodes,.cvs-handles{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* モバイル用切替ボタン */
+.mobile-toggle{display:none;position:absolute;top:8px;z-index:200;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.mobile-toggle.pal-tog{left:8px}
+.mobile-toggle.pan-tog{right:8px}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:150}
+/* レスポンシブ: タブレット〜スマホ */
+@media (max-width: 900px){
+  .pal{width:128px;padding:6px}
+  .rpanel{width:240px}
+  .pal-item{font-size:10px;padding:5px}
+  .p-ico{font-size:13px;width:16px}
+}
+@media (max-width: 700px){
+  /* ヘッダーをコンパクトに */
+  .hdr{padding:6px 8px;gap:6px;flex-wrap:wrap}
+  .hdr-title{font-size:13px}
+  .hdr-sub{display:none}
+  .hdr-right{gap:4px;flex-wrap:wrap}
+  .btn{padding:5px 8px;font-size:11px}
+  .btn-sm{padding:3px 6px;font-size:10px}
+  .vlbl{display:none}
+  /* パレットと右パネルをオーバーレイ化 */
+  .pal{position:fixed;top:0;left:0;height:100%;width:170px;z-index:180;transform:translateX(-100%);transition:transform .2s;box-shadow:2px 0 8px rgba(0,0,0,.15)}
+  .pal.open{transform:translateX(0)}
+  /* 右パネルをボトムシート化（要素が隠れないように下から） */
+  .rpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;height:55vh;max-height:60vh;z-index:180;transform:translateY(100%);transition:transform .2s;box-shadow:0 -2px 8px rgba(0,0,0,.15);border-left:none;border-top:1px solid #e2e8f0;border-top-left-radius:14px;border-top-right-radius:14px;overflow-y:auto}
+  .rpanel.open{transform:translateY(0)}
+  .rpanel::before{content:'';display:block;position:sticky;top:0;width:48px;height:5px;border-radius:3px;background:#cbd5e1;margin:8px auto 4px;flex-shrink:0}
+  .mobile-toggle{display:block}
+  .modal-backdrop.show{display:block}
+  /* モーダル */
+  .modal{max-width:96vw;max-height:92vh}
+  .mbody{padding:10px}
+  /* BOM テーブル → カード化（モバイル最適化） */
+  .bom-tbl{font-size:12px;display:block}
+  .bom-tbl thead{display:none}
+  .bom-tbl tbody{display:block}
+  .bom-tbl tr{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:4px 10px;
+    align-items:center;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    background:white;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+  }
+  .bom-tbl tbody tr:hover td{background:transparent}
+  .bom-tbl td{
+    display:block;
+    padding:0;
+    border:none!important;
+    font-size:12px;
+  }
+  .bom-tbl td:empty{display:none}
+  /* 1列目=部品名（左上、太字大きめ） */
+  .bom-tbl td:nth-child(1){grid-column:1;grid-row:1;font-size:13.5px;font-weight:700;color:#0f172a}
+  /* 2列目=仕様（左下、小さくグレー） */
+  .bom-tbl td:nth-child(2){grid-column:1;grid-row:2;font-size:11px;color:#64748b;margin-top:-2px}
+  /* 3列目=必要数（右側、バッジ風） */
+  .bom-tbl td:nth-child(3){grid-column:2;grid-row:1;text-align:right;justify-self:end;background:#fef3c7;color:#92400e;padding:2px 10px!important;border-radius:12px;font-weight:700;font-size:11px}
+  /* 4列目=小計（右下） */
+  .bom-tbl td:nth-child(4){grid-column:2;grid-row:2;text-align:right;font-size:11.5px;color:#dd8c1a;font-weight:600;justify-self:end}
+  /* 5列目=Amazon CTA（フル幅、下段） */
+  .bom-tbl td:last-child{grid-column:1/-1;grid-row:3;margin-top:6px;padding-top:8px!important;border-top:1px dashed #e2e8f0!important}
+  /* 配線材・工具テーブル（3列）: 1=サイズ/品名, 2=使用箇所, 3=Amazon */
+  .bom-tbl.bom-wire tr{grid-template-columns:auto 1fr}
+  .bom-tbl.bom-wire td:nth-child(2){grid-column:2;grid-row:1;font-size:11.5px;color:#64748b;text-align:right;justify-self:end;margin-top:0}
+  .bom-tbl.bom-wire td:last-child{grid-row:2}
+  /* シミュレーションのグリッドを1列に */
+  .sim-grid{grid-template-columns:1fr}
+  .sim-stat{padding:10px}
+  .sim-stat-val{font-size:18px}
+  .sim-load-row{grid-template-columns:1fr 50px 50px 60px;font-size:11px;gap:4px}
+  /* タッチターゲット拡大 */
+  .port{width:16px;height:16px}
+  .wp-handle{width:20px;height:20px}
+  .add-wp{width:18px;height:18px;font-size:13px}
+}
+.tip-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:9px 10px;font-size:11px;color:#0891b2;line-height:1.7;margin-top:6px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ═══════════════════════════════════════════════════════════════
+//  Constants
+// ═══════════════════════════════════════════════════════════════
+// 許容電流: KIV (JIS C 3306) 空中単線・周囲温度40℃基準
+const WIRE_SIZES = [
+  {mm2:0.75,awg:18,   maxA:15,  label:'0.75mm²'},
+  {mm2:1.25,awg:16,   maxA:20,  label:'1.25mm²'},
+  {mm2:2,   awg:14,   maxA:27,  label:'2mm²'},
+  {mm2:3.5, awg:12,   maxA:37,  label:'3.5mm²'},
+  {mm2:5.5, awg:10,   maxA:49,  label:'5.5mm²'},
+  {mm2:8,   awg:8,    maxA:61,  label:'8mm²'},
+  {mm2:14,  awg:6,    maxA:88,  label:'14mm²'},
+  {mm2:22,  awg:4,    maxA:115, label:'22mm²'},
+  {mm2:38,  awg:2,    maxA:162, label:'38mm²'},
+  {mm2:60,  awg:'1/0',maxA:220, label:'60mm²'},
+  {mm2:100, awg:'3/0',maxA:298, label:'100mm²'},
+];
+const FUSE_STD=[5,10,15,20,25,30,40,50,60,80,100,125,150,200,250,300,400,500];
+
+// Wire preset colors
+const WIRE_COLORS=[
+  {color:'#ef4444',name:'赤（+極）'},
+  {color:'#1e293b',name:'黒（−極）'},
+  {color:'#3b82f6',name:'青（AC）'},
+  {color:'#f97316',name:'橙'},
+  {color:'#eab308',name:'黄'},
+  {color:'#22c55e',name:'緑'},
+  {color:'#7c3aed',name:'紫'},
+  {color:'#94a3b8',name:'グレー'},
+  {color:'#f8fafc',name:'白'},
+];
+
+function calcWire(a,l,v){
+  if(!a||!l||!v) return null;
+  const s=(2*l*a)/(56*v*.03);
+  return WIRE_SIZES.find(w=>w.mm2>=s&&w.maxA>=a)||WIRE_SIZES[WIRE_SIZES.length-1];
+}
+function suggestFuse(a){ return FUSE_STD.find(r=>r>=a*1.25)||500; }
+
+// ポートに流れる予想電流（A）。両端の機器仕様から導出。安全余裕1.25倍を含む。
+function expectedCurrentAt(node,portId){
+  if(!node) return null;
+  const p=node.props||{};
+  switch(node.type){
+    case'solar_panel':
+      // Isc × 1.25（NEC基準）。なければ watts/voc から推定
+      if(p.isc) return p.isc*1.25;
+      if(p.watts&&p.voc) return (p.watts/p.voc)*1.25;
+      return null;
+    case'inverter':
+      if(portId==='dc_pos'||portId==='dc_neg'){
+        // DC入力 = 連続出力W / 入力V / 効率(0.85) × 安全1.25
+        const w=p.watts||0, v=p.inputV||12;
+        return v>0?(w/v/0.85)*1.25:null;
+      } else if(portId==='ac'){
+        return (p.watts||0)/100;
+      }
+      return null;
+    case'mppt': case'pwm':
+      // 太陽光側・バッテリー側・負荷側いずれも最大電流
+      return (p.maxA||0)*1.25;
+    case'dc_dc':
+      // 入出力どちらも最大電流（実効はもう少し低いが安全側）
+      return (p.maxA||0)*1.25;
+    case'charger':
+      return (p.maxA||0)*1.25;
+    case'fuse': case'breaker': case'switch':
+      return p.amps||null;
+    case'dc_load':
+      { const v=p.voltage||12; return v>0?(p.watts||0)/v:null; }
+    case'ac_load':
+      return (p.watts||0)/100;
+    case'shore_power':
+    case'battery':
+    case'bus_pos':
+    case'bus_neg':
+    case'bus_bar':
+      return null; // 反対側のポート電流に従う、またはネットワーク集計
+  }
+  return null;
+}
+// バスバー経由の場合、そこに集約される他配線の電流を合計
+// excludeConnId: 自分自身の配線ID（合計対象から除外）
+function sumBusBarCurrent(busNode,conns,nodes,excludeConnId=null){
+  if(!busNode) return 0;
+  if(busNode.type!=='bus_pos'&&busNode.type!=='bus_neg') return 0;
+  let total=0;
+  for(const c of conns){
+    if(c.id===excludeConnId) continue;
+    const isFrom=c.fromNode===busNode.id, isTo=c.toNode===busNode.id;
+    if(!isFrom&&!isTo) continue;
+    const otherId=isFrom?c.toNode:c.fromNode;
+    const otherPort=isFrom?c.toPort:c.fromPort;
+    const otherNode=nodes.find(n=>n.id===otherId);
+    if(!otherNode) continue;
+    // 反対端がバスバーの場合は再帰せず、その配線の amps を信用
+    if(otherNode.type==='bus_pos'||otherNode.type==='bus_neg'){
+      const a=+c.amps||0; total+=a;
+    } else {
+      const curr=expectedCurrentAt(otherNode,otherPort);
+      if(curr) total+=curr;
+      else if(c.amps) total+=+c.amps; // 明示的に設定されていれば使う
+    }
+  }
+  return total;
+}
+// 配線全体の予想電流（バスバー考慮版）。両端から取得し、null 同士ならバスバー側の他配線を合計
+function calcWireAmps(fromN,fromPortId,toN,toPortId,conns,nodes,excludeConnId=null){
+  const aF=expectedCurrentAt(fromN,fromPortId);
+  const aT=expectedCurrentAt(toN,toPortId);
+  if(aF!=null||aT!=null) return Math.max(aF||0,aT||0);
+  // 両端不明 → バスバーの他配線を合計
+  const fromIsBus=fromN&&(fromN.type==='bus_pos'||fromN.type==='bus_neg');
+  const toIsBus=toN&&(toN.type==='bus_pos'||toN.type==='bus_neg');
+  const busNode=fromIsBus?fromN:(toIsBus?toN:null);
+  return sumBusBarCurrent(busNode,conns,nodes,excludeConnId);
+}
+// 2ポート間のおおよその配線長(m)。ピクセル距離 100px=1m を目安、最小1m。
+// スケール: 機器寸法と同じ 1cm = 10px → 1m = 1000px
+const PX_PER_M=1000;
+function estimateWireLengthM(p1,p2){
+  if(!p1||!p2) return 0.5;
+  const dx=p1.x-p2.x, dy=p1.y-p2.y;
+  const px=Math.hypot(dx,dy);
+  // 0.1m単位で丸め、最低0.3m
+  const m=Math.max(0.3,Math.round(px/PX_PER_M*10)/10);
+  return m;
+}
+// 実際の描画経路のセグメント配列から配線長(m)を計算。1m=1000px (10px/cm), 0.1m単位丸め, 最低0.3m。
+function pathLengthM(segs){
+  if(!segs||!segs.length) return 0.3;
+  let total=0;
+  for(const s of segs) total+=Math.hypot(s.bx-s.ax,s.by-s.ay);
+  return Math.max(0.3,Math.round(total/PX_PER_M*10)/10);
+}
+// 配線の電圧コンテキスト(DC系統電圧 or AC100V)を判定
+function wireVoltage(conn,nodes,systemV){
+  const ports=[
+    {n:nodes.find(n=>n.id===conn.fromNode),pid:conn.fromPort},
+    {n:nodes.find(n=>n.id===conn.toNode),pid:conn.toPort},
+  ];
+  for(const{n,pid}of ports){
+    if(!n) continue;
+    // インバーターの AC ポート or AC負荷 → 100V
+    if(n.type==='inverter'&&pid==='ac') return 100;
+    if(n.type==='ac_load') return 100;
+    if(n.type==='shore_power') return 100;
+  }
+  return systemV;
+}
+// 配線の派生値を一括計算。上書き(空でない conn.amps/lenM/wireSize)があればそれを優先。
+// segs が無ければ amps/wireSize は派生できるが lenM は override か 1m フォールバック。
+function getDerivedWire(conn,nodes,conns,systemV,segs=null){
+  const fromN=nodes.find(n=>n.id===conn.fromNode);
+  const toN  =nodes.find(n=>n.id===conn.toNode);
+  // 長さ
+  const lenAuto=segs?pathLengthM(segs):1;
+  const lenManual=conn.lenM!=null&&conn.lenM!==''?+conn.lenM:null;
+  const lenM=lenManual!=null&&isFinite(lenManual)&&lenManual>0?lenManual:lenAuto;
+  const lenIsAuto=lenManual==null;
+  // 電流
+  const ampsAuto=Math.ceil(calcWireAmps(fromN,conn.fromPort,toN,conn.toPort,conns,nodes,conn.id)||0);
+  const ampsManual=conn.amps!=null&&conn.amps!==''?+conn.amps:null;
+  const amps=ampsManual!=null&&isFinite(ampsManual)&&ampsManual>0?ampsManual:ampsAuto;
+  const ampsIsAuto=ampsManual==null;
+  // サイズ（AC側は 100V で計算 → 電流が小さく結果として細い線になる）
+  const v=wireVoltage(conn,nodes,systemV);
+  const sizeRes=amps>0&&lenM>0?calcWire(amps,lenM,v):null;
+  const sizeAuto=sizeRes?sizeRes.label:'';
+  const sizeManual=conn.wireSize||'';
+  const wireSize=sizeManual||sizeAuto;
+  const sizeIsAuto=!sizeManual;
+  return{amps,lenM,wireSize,lenAuto,ampsAuto,sizeAuto,lenIsAuto,ampsIsAuto,sizeIsAuto,sizeRes};
+}
+// ポートIDから極性とペアキーを抽出
+// 'bat_pos' → {pol:'pos', key:'bat'},  'pos' → {pol:'pos', key:''},  'ac_out' → null
+function portPolarityInfo(portId){
+  if(!portId) return null;
+  if(portId==='pos') return{pol:'pos',key:''};
+  if(portId==='neg') return{pol:'neg',key:''};
+  let m=portId.match(/^(.*)_pos$/);
+  if(m) return{pol:'pos',key:m[1]};
+  m=portId.match(/^(.*)_neg$/);
+  if(m) return{pol:'neg',key:m[1]};
+  return null;
+}
+// 同じノードを共有し、同じペアキー × 反対極性のポートに繋がる配線を返す
+// 例: MPPT B+ → bus_pos の partner は MPPT B- → bus_neg（MPPT を共有, bat_pos/bat_neg）
+function findPairPartner(conn,conns,nodes){
+  for(const side of['from','to']){
+    const myNode=conn[side+'Node'];
+    const myPort=conn[side+'Port'];
+    const info=portPolarityInfo(myPort); if(!info) continue;
+    const oppPol=info.pol==='pos'?'neg':'pos';
+    for(const c of conns){
+      if(c.id===conn.id) continue;
+      // c の from / to のいずれかが myNode で、同じキー × 反対極性
+      if(c.fromNode===myNode){
+        const ci=portPolarityInfo(c.fromPort);
+        if(ci&&ci.key===info.key&&ci.pol===oppPol) return c;
+      }
+      if(c.toNode===myNode){
+        const ci=portPolarityInfo(c.toPort);
+        if(ci&&ci.key===info.key&&ci.pol===oppPol) return c;
+      }
+    }
+  }
+  return null;
+}
+// 派生値配列にペア同期を適用。両端とも自動の時のみ、大きい方に揃える。
+// wireData: [{c, derived, segs, ...}] の配列
+function applyPolaritySync(wireData,nodes,connections,systemV){
+  const byId=new Map(wireData.map(w=>[w.c.id,w]));
+  for(const w of wireData){
+    const partner=findPairPartner(w.c,connections,nodes);
+    if(!partner) continue;
+    const pw=byId.get(partner.id); if(!pw) continue;
+    // 両方とも auto の時のみ同期（どちらかが上書きなら尊重）
+    if(!w.derived.sizeIsAuto||!pw.derived.sizeIsAuto) continue;
+    const myMm2=WIRE_SIZES.find(s=>s.label===w.derived.wireSize)?.mm2||0;
+    const prMm2=WIRE_SIZES.find(s=>s.label===pw.derived.wireSize)?.mm2||0;
+    if(prMm2>myMm2){
+      // 自分のサイズを partner に揃える
+      w.derived={...w.derived,wireSize:pw.derived.wireSize,sizeRes:pw.derived.sizeRes,paired:true};
+    } else if(myMm2>prMm2){
+      // 同期で「太い方に合わせた」マーク
+      w.derived={...w.derived,paired:true};
+    } else {
+      w.derived={...w.derived,paired:true};
+    }
+  }
+  return wireData;
+}
+
+// Visual thickness from wire gauge mm²
+function wireThick(wireSize){
+  const w=WIRE_SIZES.find(w=>w.label===wireSize); if(!w) return 2.5;
+  if(w.mm2<=0.75) return 2; if(w.mm2<=1.25) return 2.5; if(w.mm2<=2) return 3;
+  if(w.mm2<=3.5) return 4;  if(w.mm2<=5.5) return 5;    if(w.mm2<=8) return 6.5;
+  if(w.mm2<=14) return 8;   if(w.mm2<=22) return 10;    if(w.mm2<=38) return 12;
+  if(w.mm2<=60) return 14;  return 17;
+}
+
+const COMP = {
+  solar_panel:{label:'ソーラーパネル',cat:'発電',icon:'☀',color:'#d97706',bg:'#fef9c3',w:130,h:78,
+    defaultProps:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},
+    ports:[{id:'pos',label:'+',px:130,py:22,color:'#ef4444'},{id:'neg',label:'-',px:130,py:56,color:'#374151'}],
+    affKey:'solar_panel',priceEst:18000,amazonQ:'ソーラーパネル 200W 単結晶'},
+  shore_power:{label:'外部電源(陸電)',cat:'発電',icon:'🏠',color:'#65a30d',bg:'#ecfccb',w:118,h:66,
+    defaultProps:{name:'外部電源',voltage:100},
+    ports:[{id:'ac_out',label:'AC',px:118,py:33,color:'#6366f1'}],
+    affKey:null,priceEst:0,amazonQ:''},
+  battery:{label:'バッテリー',cat:'蓄電',icon:'🔋',color:'#16a34a',bg:'#dcfce7',w:134,h:82,
+    defaultProps:{name:'バッテリー',voltage:12,ah:100,type:'LiFePO4'},
+    ports:[{id:'pos',label:'+',px:134,py:22,color:'#ef4444'},{id:'neg',label:'-',px:134,py:60,color:'#374151'}],
+    affKey:'battery',priceEst:45000,amazonQ:'LiFePO4 バッテリー 12V 100Ah'},
+  mppt:{label:'MPPTコントローラー',cat:'制御',icon:'⚡',color:'#1d4ed8',bg:'#dbeafe',w:158,h:132,
+    defaultProps:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},
+    ports:[
+      {id:'solar_pos',label:'PV+',px:0,  py:22, color:'#ef4444'},{id:'solar_neg',label:'PV-',px:0,  py:52, color:'#374151'},
+      {id:'bat_pos',  label:'B+', px:158,py:22, color:'#ef4444'},{id:'bat_neg',  label:'B-', px:158,py:52, color:'#374151'},
+      {id:'load_pos', label:'L+', px:158,py:86, color:'#ef4444'},{id:'load_neg', label:'L-', px:158,py:110,color:'#374151'},
+    ],
+    affKey:'mppt',priceEst:9000,amazonQ:'MPPT ソーラーチャージコントローラー 40A'},
+  pwm:{label:'PWMコントローラー',cat:'制御',icon:'〜',color:'#0891b2',bg:'#cffafe',w:150,h:100,
+    defaultProps:{name:'PWMコントローラー',maxA:30},
+    ports:[
+      {id:'solar_pos',label:'PV+',px:0,  py:22,color:'#ef4444'},{id:'solar_neg',label:'PV-',px:0,  py:52,color:'#374151'},
+      {id:'bat_pos',  label:'B+', px:150,py:22,color:'#ef4444'},{id:'bat_neg',  label:'B-', px:150,py:52,color:'#374151'},
+    ],
+    affKey:'pwm',priceEst:3000,amazonQ:'PWM ソーラーチャージコントローラー 30A'},
+  inverter:{label:'インバーター',cat:'変換',icon:'🔄',color:'#7c3aed',bg:'#ede9fe',w:148,h:90,
+    defaultProps:{name:'インバーター',watts:1000,type:'正弦波',inputV:12},
+    ports:[
+      {id:'dc_pos',label:'DC+',px:0,  py:24,color:'#ef4444'},{id:'dc_neg',label:'DC-',px:0,  py:55,color:'#374151'},
+      {id:'ac_out',label:'AC', px:148,py:39,color:'#6366f1'},
+    ],
+    affKey:'inverter',priceEst:16000,amazonQ:'正弦波インバーター 1000W 12V'},
+  dc_dc:{label:'DC-DCコンバーター',cat:'変換',icon:'⇄',color:'#0f766e',bg:'#ccfbf1',w:138,h:90,
+    defaultProps:{name:'DC-DC変換',inputV:24,outputV:12,maxA:20},
+    ports:[
+      {id:'in_pos', label:'IN+', px:0,  py:22,color:'#ef4444'},{id:'in_neg', label:'IN-', px:0,  py:52,color:'#374151'},
+      {id:'out_pos',label:'OUT+',px:138,py:22,color:'#ef4444'},{id:'out_neg',label:'OUT-',px:138,py:52,color:'#374151'},
+    ],
+    affKey:'dc_dc',priceEst:5500,amazonQ:'DC DC コンバーター 24V 12V'},
+  charger:{label:'AC充電器',cat:'変換',icon:'🔌',color:'#be185d',bg:'#fce7f3',w:132,h:90,
+    defaultProps:{name:'AC充電器',inputAC:100,outputV:12,maxA:20},
+    ports:[
+      {id:'ac_in', label:'AC', px:0,  py:39,color:'#6366f1'},
+      {id:'dc_pos',label:'DC+',px:132,py:22,color:'#ef4444'},{id:'dc_neg',label:'DC-',px:132,py:56,color:'#374151'},
+    ],
+    affKey:'charger',priceEst:8000,amazonQ:'バッテリーチャージャー 12V 20A AC100V'},
+  bus_pos:{label:'正極バスバー (+)',cat:'配電',icon:'━',color:'#dc2626',bg:'#fee2e2',w:180,h:44,
+    defaultProps:{name:'バスバー (+)',maxA:200,portCount:6},
+    ports:[
+      {id:'p0',label:'',px:22, py:0, color:'#ef4444'},{id:'p1',label:'',px:54, py:0, color:'#ef4444'},
+      {id:'p2',label:'',px:86, py:0, color:'#ef4444'},{id:'p3',label:'',px:118,py:0, color:'#ef4444'},
+      {id:'p4',label:'',px:150,py:0, color:'#ef4444'},{id:'p5',label:'',px:22, py:44,color:'#ef4444'},
+      {id:'p6',label:'',px:54, py:44,color:'#ef4444'},{id:'p7',label:'',px:86, py:44,color:'#ef4444'},
+      {id:'p8',label:'',px:118,py:44,color:'#ef4444'},{id:'p9',label:'',px:150,py:44,color:'#ef4444'},
+    ],
+    affKey:'bus_bar',priceEst:2200,amazonQ:'バスバー 電源 分配 正極'},
+  bus_neg:{label:'負極バスバー (−)',cat:'配電',icon:'━',color:'#475569',bg:'#f1f5f9',w:180,h:44,
+    defaultProps:{name:'バスバー (−)',maxA:200,portCount:6},
+    ports:[
+      {id:'p0',label:'',px:22, py:0, color:'#374151'},{id:'p1',label:'',px:54, py:0, color:'#374151'},
+      {id:'p2',label:'',px:86, py:0, color:'#374151'},{id:'p3',label:'',px:118,py:0, color:'#374151'},
+      {id:'p4',label:'',px:150,py:0, color:'#374151'},{id:'p5',label:'',px:22, py:44,color:'#374151'},
+      {id:'p6',label:'',px:54, py:44,color:'#374151'},{id:'p7',label:'',px:86, py:44,color:'#374151'},
+      {id:'p8',label:'',px:118,py:44,color:'#374151'},{id:'p9',label:'',px:150,py:44,color:'#374151'},
+    ],
+    affKey:'bus_bar',priceEst:2200,amazonQ:'バスバー 電源 分配 負極'},
+  fuse:{label:'ヒューズ',cat:'保護',icon:'⊡',color:'#d97706',bg:'#fef3c7',w:92,h:52,
+    defaultProps:{name:'ヒューズ',amps:30,type:'ANL'},
+    ports:[{id:'in',label:'入',px:0,py:26,color:'#ef4444'},{id:'out',label:'出',px:92,py:26,color:'#ef4444'}],
+    affKey:'fuse',priceEst:1500,amazonQ:'ANLヒューズ ホルダー ソーラー'},
+  breaker:{label:'サーキットブレーカー',cat:'保護',icon:'⊕',color:'#dc2626',bg:'#fee2e2',w:100,h:52,
+    defaultProps:{name:'ブレーカー',amps:30},
+    ports:[{id:'in',label:'入',px:0,py:26,color:'#ef4444'},{id:'out',label:'出',px:100,py:26,color:'#ef4444'}],
+    affKey:'breaker',priceEst:2200,amazonQ:'DC サーキットブレーカー 12V'},
+  switch:{label:'バッテリースイッチ',cat:'保護',icon:'◎',color:'#78716c',bg:'#f5f5f4',w:96,h:52,
+    defaultProps:{name:'メインスイッチ',amps:100},
+    ports:[{id:'in',label:'入',px:0,py:26,color:'#ef4444'},{id:'out',label:'出',px:96,py:26,color:'#ef4444'}],
+    affKey:'switch',priceEst:3200,amazonQ:'バッテリースイッチ 100A キャンピングカー'},
+  dc_load:{label:'DC機器',cat:'負荷',icon:'💡',color:'#0891b2',bg:'#cffafe',w:112,h:72,
+    defaultProps:{name:'DC負荷',watts:50,voltage:12},
+    ports:[{id:'pos',label:'+',px:0,py:22,color:'#ef4444'},{id:'neg',label:'-',px:0,py:52,color:'#374151'}],
+    affKey:null,priceEst:0,amazonQ:''},
+  ac_load:{label:'AC機器',cat:'負荷',icon:'🔌',color:'#4f46e5',bg:'#e0e7ff',w:112,h:66,
+    defaultProps:{name:'AC負荷',watts:500},
+    ports:[{id:'ac_in',label:'AC',px:0,py:33,color:'#6366f1'}],
+    affKey:null,priceEst:0,amazonQ:''},
+};
+const CATS=['発電','蓄電','制御','変換','配電','保護','負荷'];
+// 部品の代表写真URL。各部品の Amazon 検索画像が表示される。
+// 読み込み失敗時はカラフルなアイコンサムネイルにフォールバック。
+// ユーザーが「📎 PNGに変更」でノードに iconUrl を設定した場合はそちらが優先される。
+// → 写真は Amazon 検索リンクをタップしたときに見られるので、デフォルトは軽量なアイコンとした。
+//   独自画像を使いたい場合は、PHOTO_URLS の対応する type に画像 URL を追加するか、
+//   ノードごとに「📎 PNGに変更」で個別アップロード可能。
+const PHOTO_URLS={};
+// 汎用サムネイル: 写真URL があれば画像、失敗時は色付き絵文字ボックス
+function ThumbBox({url,icon,color,bg,label,size=48}){
+  const [err,setErr]=React.useState(false);
+  React.useEffect(()=>{setErr(false);},[url]);
+  if(url&&!err){
+    return(<img src={url} alt={label||''} loading="lazy"
+      onError={()=>setErr(true)}
+      style={{width:size,height:size,objectFit:'cover',background:bg,borderRadius:8,border:`1px solid ${color}33`,flexShrink:0}}/>);
+  }
+  return(<div style={{width:size,height:size,background:bg,border:`1px solid ${color}33`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(size*0.55),color:color,flexShrink:0}}>{icon}</div>);
+}
+// 部品の代表サムネイル
+function ProductThumb({type,node,size=48}){
+  const d=COMP[type]; if(!d) return null;
+  const url=node?.props?.iconUrl||PHOTO_URLS[type]||'';
+  return<ThumbBox url={url} icon={d.icon} color={d.color} bg={d.bg} label={d.label} size={size}/>;
+}
+// 各部品の役割・配線方法・注意点（右パネル詳細表示用）
+const COMP_DESC={
+  solar_panel:{
+    role:'太陽光から電力を生み出す発電装置。直流（DC）を出力します。',
+    wiring:'PV+/PV− を MPPT または PWM チャージコントローラーの「SOLAR」ポートに接続。複数枚を直列/並列で組み合わせ可能。',
+    tips:'Voc（開放電圧）はコントローラー最大入力電圧以下、Isc（短絡電流）は最大入力電流以下に。寒い朝は Voc が定格より10〜25%高くなる点に注意。'
+  },
+  shore_power:{
+    role:'家庭用 AC100V 電源（陸電・外部電源）を車内に取り込みます。',
+    wiring:'外部入力プラグ → 主幹ブレーカー → ACチャージャーの入力 へ。チャージャー経由でバッテリー充電。',
+    tips:'漏電遮断器（ELB）の設置を強く推奨。雨天時の差し込みは絶対に避ける。'
+  },
+  battery:{
+    role:'電力を蓄える主役。すべての電力供給の中心。',
+    wiring:'+極 → ヒューズ → メインスイッチ → 正極バスバー → 各機器へ。 −極 → 負極バスバー → 各機器へ。',
+    tips:'LiFePO4 は2000〜5000サイクル使えて寿命が長い。鉛バッテリーは半分まで使うと寿命が縮むため実効容量は公称の半分。'
+  },
+  inverter:{
+    role:'バッテリーのDC電圧をAC100Vに変換し、家電を動かせるようにします。',
+    wiring:'DC+/DC− をバッテリー（推奨：太い配線＋専用ヒューズ）。AC出力をAC機器または配電盤に接続。',
+    tips:'電子レンジ・エアコンなどは始動時にピーク電流が定格の2〜3倍になる。容量は連続定格＋ピーク余裕で選定。正弦波（純正弦波）が機器に優しい。'
+  },
+  mppt:{
+    role:'ソーラー電力を最大効率で取り出す高効率コントローラー（PWMより15〜30%多く発電）。',
+    wiring:'PV+/PV− にソーラーパネル、B+/B− にバッテリー、L+/L−（あれば）に負荷を接続。',
+    tips:'パネル電圧 > バッテリー電圧 の構成（例：24Vパネル+12Vバッテリー）で効果大。短い配線でも昇圧損失を抑えられる。'
+  },
+  pwm:{
+    role:'シンプルで安価なソーラーチャージコントローラー。',
+    wiring:'PV+/PV−にソーラー、B+/B−にバッテリー、L+/L−に直流負荷（任意）。',
+    tips:'パネル電圧とバッテリー電圧が近い構成（12V系で揃える）向き。MPPTより安いが効率は劣る。小規模向け。'
+  },
+  dc_dc:{
+    role:'DC電圧を別のDC電圧に変換（昇圧・降圧）するコンバーター。',
+    wiring:'IN+/IN−を入力側（例：24Vバッテリー）、OUT+/OUT−を変換後の機器（例：12V系）に接続。',
+    tips:'24V/48V車載で12V機器を使う／USB機器の5V供給など。降圧型は高効率、昇圧型は若干損失あり。'
+  },
+  charger:{
+    role:'AC100Vからバッテリーを充電する陸電用充電器。',
+    wiring:'AC入力 ← 陸電（または外部電源）。DC+/DC− → バッテリー。',
+    tips:'長期保管時のメンテナンス充電、太陽光が足りない時の補助に。バッテリー種別に合う充電プロファイル選定が必須。'
+  },
+  bus_pos:{
+    role:'+極の配線を1ヶ所にまとめる端子台。1本の太い配線を複数機器に分配。',
+    wiring:'バッテリー+ → 主幹ヒューズ → メインスイッチ → このバスバーへ。各ポートから機器の+極にそれぞれ分岐（個別ヒューズ推奨）。',
+    tips:'配線が整理されメンテナンス性が向上。容量（maxA）は接続する全機器の合計電流 ×1.25 以上で選定。'
+  },
+  bus_neg:{
+    role:'−極（マイナス・グラウンド）の配線を1ヶ所にまとめる端子台。',
+    wiring:'バッテリー− → このバスバーへ。各機器の−極をここに集約。',
+    tips:'車体アースと共通化するかは構成次第。ノイズに敏感な機器（オーディオ等）は専用配線推奨。容量は+側と同等以上で。'
+  },
+  fuse:{
+    role:'過電流から配線・機器を保護する安全装置（溶断式、一度切れたら交換）。',
+    wiring:'+極ラインの「電源に近い側」に設置。バッテリー+から30cm以内が理想。配線の許容電流の約80%で選定。',
+    tips:'ANL/MEGAは大電流（100A〜）向き、ATC/ATOは中小電流向き、ガラス管/管型は精密機器向き。'
+  },
+  breaker:{
+    role:'ヒューズと同じ働きをするが、リセット可能で再使用できる遮断器。',
+    wiring:'+極ライン（または主幹）に設置。バッテリー近辺が定石。',
+    tips:'頻繁にON/OFFする箇所や、メイン主幹に便利。手動レバー付きはスイッチ兼用にもなる。'
+  },
+  switch:{
+    role:'メイン電源スイッチ（バッテリースイッチ）。バッテリーからの電力をON/OFF。',
+    wiring:'バッテリー+極の主幹に設置（ヒューズの後がベスト）。',
+    tips:'長期保管時の自己放電抑制、整備時の絶縁、緊急時の遮断に必須。容量は主幹電流以上で選定。'
+  },
+  dc_load:{
+    role:'直流（DC）で動く機器。LED照明、車載冷蔵庫、水中ポンプ、USB機器など。',
+    wiring:'+極側はヒューズを経由して正極バスバーへ。−極側は負極バスバーへ。スイッチを噛ませると個別ON/OFF可能。',
+    tips:'消費電力（W）を電圧で割って電流（A）を算出し、配線サイズとヒューズを決める。突入電流の大きい機器（モーター系）は余裕を持って。'
+  },
+  ac_load:{
+    role:'交流（AC100V）で動く機器。電子レンジ、テレビ、電気ケトル、洗濯機など。',
+    wiring:'インバーターのAC出力に接続。複数機器を使うなら配電盤を経由。',
+    tips:'消費電力が大きいほどインバーター容量が大きく必要。発熱機器（ケトル・ヒーター）はバッテリー消費が激しい。'
+  }
+};
+const AFF={
+  solar_panel:{q:'ソーラーパネル 200W 単結晶'},battery:{q:'LiFePO4 バッテリー 12V 100Ah'},
+  mppt:{q:'MPPT ソーラーチャージコントローラー 40A'},pwm:{q:'PWM ソーラーチャージコントローラー 30A'},
+  inverter:{q:'正弦波インバーター 1000W 12V'},dc_dc:{q:'DC DC コンバーター 24V 12V'},
+  charger:{q:'バッテリーチャージャー 12V 20A'},bus_bar:{q:'バスバー 電源分配 キャンピングカー'},
+  fuse:{q:'ANLヒューズ ホルダー セット'},breaker:{q:'DC サーキットブレーカー 12V'},switch:{q:'バッテリースイッチ 100A'},
+};
+const WIRE_AFF=[{mm2:'2',q:'耐熱電線 2sq'},{mm2:'5.5',q:'耐熱電線 5.5sq'},{mm2:'8',q:'電線 8sq'},
+  {mm2:'14',q:'電線 14sq キャンピングカー'},{mm2:'22',q:'電線 22sq バッテリー'},{mm2:'38',q:'電線 38sq'},{mm2:'60',q:'バッテリーケーブル 60sq'}];
+// 工具・消耗品: 名前、Amazon 検索クエリ、サムネ用アイコン絵文字、色（bg / 文字）
+const TOOL_AFF=[
+  {n:'圧着端子(丸型)セット',q:'圧着端子 丸型 セット',icon:'🔩',color:'#475569',bg:'#e2e8f0'},
+  {n:'ラチェット電工ペンチ',q:'電工ペンチ 圧着 ラチェット',icon:'🔧',color:'#1e40af',bg:'#dbeafe'},
+  {n:'ハーネステープ',q:'ハーネステープ 電気絶縁',icon:'🧷',color:'#9333ea',bg:'#f3e8ff'},
+  {n:'ケーブルスリーブ',q:'電線スリーブ ケーブルタイ',icon:'🪢',color:'#a16207',bg:'#fef3c7'}
+];
+// 配線材: サイズごとのアイコン用色
+const WIRE_THUMB={icon:'🧵',color:'#0891b2',bg:'#cffafe'};
+// ────────────── サンプル構成（初期表示用プリセット）──────────────
+// 配線が重ならないよう、ノード位置と中継点（waypoints）を事前に最適化済み。
+const _wire=(id,fn,fp,tn,tp,color,waypoints)=>({id,fromNode:fn,fromPort:fp,toNode:tn,toPort:tp,amps:'',lenM:'',wireSize:'',wireColor:color,customThick:null,waypoints:waypoints||[]});
+const RED='#ef4444',BLK='#1f2937',AC='#6366f1';
+const SAMPLES=[
+  {
+    key:'minimal',label:'⚡ シンプル太陽光',
+    desc:'入門用：ソーラー + MPPT + ヒューズ + バッテリー の最小構成',
+    spec:'4部品 / 5配線',
+    build:()=>({
+      nodes:[
+        // 上段：ソーラー
+        {id:'1',type:'solar_panel',x:80,y:60,props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
+        // 中段：MPPT を 90° 回転して縦置き（PV ポートが上、B/L ポートが下）
+        {id:'2',type:'mppt',x:320,y:200,rotation:90,props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{}},
+        // バッテリー+ 直近にヒューズ（保護装置）
+        {id:'3',type:'fuse',x:400,y:410,props:{name:'バッテリーヒューズ',amps:50,type:'ANL'},portPositions:{}},
+        // 下段：バッテリー（ポート位置を左側に上書きして MPPT 下から自然に接続）
+        {id:'4',type:'battery',x:560,y:420,props:{name:'バッテリー',voltage:12,ah:100,type:'LiFePO4'},
+          portPositions:{pos:{px:0,py:22},neg:{px:0,py:60}}},
+      ],
+      conns:[
+        // ソーラー → MPPT 上面（右→下）
+        _wire('a','1','pos','2','solar_pos',RED),
+        _wire('b','1','neg','2','solar_neg',BLK),
+        // MPPT B+ → ヒューズ出 → バッテリー+（保護装置を経由）
+        _wire('c','2','bat_pos','3','out',RED),
+        _wire('d','3','in','4','pos',RED),
+        // MPPT B- → バッテリー-（下→下→右 で別レーンに）
+        _wire('e','2','bat_neg','4','neg',BLK,[{x:400,y:480},{x:560,y:480}]),
+      ]
+    })
+  },
+  {
+    key:'camping',label:'🚐 キャンピングカー標準',
+    desc:'発電・蓄電・インバーター・保護装置を組合せた一般的構成',
+    spec:'10部品 / 13配線',
+    // ユーザー編集済み offgrid-design (4).json の座標をそのまま使用
+    build:()=>({
+      nodes:[
+        {id:'1',type:'solar_panel',x:79.37,y:45.40,
+          props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},
+          portPositions:{pos:{px:89.78,py:78},neg:{px:42.79,py:78}}},
+        {id:'2',type:'mppt',x:300,y:130,
+          props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{}},
+        {id:'3',type:'bus_pos',x:540,y:140,
+          props:{name:'バスバー (+)',maxA:200,portCount:6},portPositions:{}},
+        {id:'5',type:'battery',x:80,y:221.74,
+          props:{name:'バッテリー',voltage:12,ah:100,type:'LiFePO4'},
+          portPositions:{pos:{px:84.07,py:82},neg:{px:44.06,py:82}}},
+        {id:'6',type:'switch',x:260,y:320,
+          props:{name:'メインスイッチ',amps:100},portPositions:{}},
+        {id:'7',type:'fuse',x:400,y:320,
+          props:{name:'メインヒューズ',amps:150,type:'ANL'},portPositions:{}},
+        {id:'4',type:'bus_neg',x:540,y:430,
+          props:{name:'バスバー (−)',maxA:200,portCount:6},portPositions:{}},
+        {id:'8',type:'inverter',x:820,y:200,
+          props:{name:'インバーター',watts:1000,type:'正弦波',inputV:12},
+          portPositions:{ac_out:{px:74,py:90}}},
+        {id:'9',type:'ac_load',x:920.95,y:318.73,
+          props:{name:'AC機器',watts:500},portPositions:{}},
+        {id:'10',type:'dc_load',x:919.68,y:425.71,
+          props:{name:'DC機器',watts:60,voltage:12},portPositions:{}},
+      ],
+      conns:[
+        _wire('a','1','pos','2','solar_pos',RED),
+        _wire('b','1','neg','2','solar_neg',BLK,[{x:123,y:181.87},{x:272,y:181.87},{x:272,y:182}]),
+        _wire('c','2','bat_pos','3','p0',RED,[{x:480,y:120},{x:562,y:120}]),
+        _wire('d','2','bat_neg','4','p0',BLK),
+        _wire('e','5','pos','6','in',RED,[{x:164,y:344.44},{x:232,y:344.44},{x:232,y:346}]),
+        _wire('f','6','out','7','in',RED),
+        _wire('g','7','out','3','p3',RED,[{x:562,y:346}]),
+        _wire('h','5','neg','4','p3',BLK),
+        _wire('i','3','p4','8','dc_pos',RED,[{x:630,y:222}]),
+        _wire('j','4','p2','8','dc_neg',BLK,[{x:690,y:255}]),
+        _wire('k','8','ac_out','9','ac_in',AC),
+        _wire('l','3','p5','10','pos',RED),
+        _wire('m','4','p5','10','neg',BLK),
+      ]
+    })
+  },
+  {
+    key:'hybrid',label:'🏠 ハイブリッド（陸電併用）',
+    desc:'太陽光 + 陸電(AC100V)からの充電を併用、停車中も使える構成',
+    spec:'7部品 / 10配線',
+    build:()=>({
+      nodes:[
+        // 上段：ソーラー → MPPT
+        {id:'1',type:'solar_panel',x:80,y:80,props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
+        {id:'2',type:'mppt',x:440,y:60,props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{}},
+        // 下段：外部電源 → AC充電器
+        {id:'3',type:'shore_power',x:80,y:380,props:{name:'外部電源',voltage:100},portPositions:{}},
+        {id:'4',type:'charger',x:440,y:360,props:{name:'AC充電器',inputAC:100,outputV:12,maxA:20},portPositions:{}},
+        // 中央：合流ヒューズ → バッテリー → インバーター（横一列）
+        {id:'5',type:'fuse',x:780,y:210,props:{name:'メインヒューズ',amps:150,type:'ANL'},portPositions:{}},
+        {id:'6',type:'battery',x:1000,y:200,props:{name:'バッテリー',voltage:12,ah:200,type:'LiFePO4'},portPositions:{}},
+        {id:'7',type:'inverter',x:1280,y:200,props:{name:'インバーター',watts:1500,type:'正弦波',inputV:12},portPositions:{}},
+      ],
+      conns:[
+        // ソーラー → MPPT
+        _wire('a','1','pos','2','solar_pos',RED,[{x:325,y:102},{x:325,y:82}]),
+        _wire('b','1','neg','2','solar_neg',BLK,[{x:370,y:136},{x:370,y:112}]),
+        // 外部電源 → AC充電器
+        _wire('c','3','ac_out','4','ac_in',AC,[{x:319,y:413},{x:319,y:399}]),
+        // MPPT B+ → ヒューズ入（左辺に沿って上から入る）
+        _wire('d','2','bat_pos','5','in',RED,[{x:780,y:82}]),
+        // 充電器 DC+ → ヒューズ入（左辺に沿って下から入る、d と反対方向で重複ゼロ）
+        _wire('e','4','dc_pos','5','in',RED,[{x:780,y:382}]),
+        // ヒューズ出 → バッテリー+（バッテリー上を回り込み、右辺から入る）
+        _wire('f','5','out','6','pos',RED,[{x:872,y:190},{x:1134,y:190}]),
+        // MPPT B- → バッテリー-（バッテリー右側を上から回り込み、x=1190経由）
+        _wire('g','2','bat_neg','6','neg',BLK,[{x:730,y:112},{x:730,y:180},{x:1190,y:180},{x:1190,y:260}]),
+        // 充電器 DC- → バッテリー-（下から右辺へ、g と反対方向で重複ゼロ）
+        _wire('h','4','dc_neg','6','neg',BLK,[{x:880,y:416},{x:880,y:330},{x:1134,y:330}]),
+        // バッテリー+ → インバーター DC+
+        _wire('i','6','pos','7','dc_pos',RED,[{x:1280,y:222}]),
+        // バッテリー- → インバーター DC-（y=255で g/h の y=260 を避ける）
+        _wire('j','6','neg','7','dc_neg',BLK,[{x:1134,y:255}]),
+      ]
+    })
+  },
+];
+// ─────────────────────────────────────────────────────────────────
+// もしもアフィリエイト設定 (a_id: 1191967 / Amazon.co.jp)
+// ─────────────────────────────────────────────────────────────────
+const MOSHIMO_A_ID = '1191967';
+function moshimoUrl(amazonUrl){
+  return `https://af.moshimo.com/af/c/click?a_id=${MOSHIMO_A_ID}&p_id=170&pc_id=185&pl_id=4062&url=${encodeURIComponent(amazonUrl)}`;
+}
+function affLink(q,tag,sort){
+  // sort: undefined=おすすめ, 'price-asc-rank'=価格安い順, 'review-rank'=★高評価順
+  const s=sort?`&s=${sort}`:'';
+  return moshimoUrl(`https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}${s}`);
+}
+function affLinkPrime(q,tag){
+  // Prime対応のみ表示
+  return moshimoUrl(`https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}&rh=p_85%3A467229071`);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 公開モード設定
+// ここに自分の Amazon アソシエイトタグを記入すると、
+//   ・全 Amazon リンクに自動で付与される
+//   ・⚙ 設定ボタンが非表示になり、エンドユーザーは書き換え不可
+// 空文字のままだと開発モード（設定画面でローカルに変更可能）
+// ─────────────────────────────────────────────────────────────────
+const DEPLOY_AFF_TAG = ''; // 例: 'yourname-22'
+// ノードの実プロパティから Amazon 検索クエリを生成
+function amazonQuery(node){
+  const d=COMP[node.type]; const p=node.props||{};
+  switch(node.type){
+    case'battery':     return`${p.type||'LiFePO4'} バッテリー ${p.voltage||12}V ${p.ah||100}Ah`;
+    case'solar_panel': return`ソーラーパネル ${p.watts||200}W 単結晶`;
+    case'inverter':    return`${p.type||'正弦波'}インバーター ${p.watts||1000}W ${p.inputV||12}V`;
+    case'mppt':        return`MPPT ソーラーチャージコントローラー ${p.maxA||40}A`;
+    case'pwm':         return`PWM ソーラーチャージコントローラー ${p.maxA||30}A`;
+    case'dc_dc':       return`DC DC コンバーター ${p.inputV||24}V ${p.outputV||12}V ${p.maxA||''}A`.trim();
+    case'charger':     return`バッテリーチャージャー ${p.outputV||12}V ${p.maxA||20}A AC100V`;
+    case'fuse':        return`${p.type||'ANL'}ヒューズ ${p.amps||100}A ホルダー`;
+    case'breaker':     return`DC サーキットブレーカー ${p.amps||30}A ${p.maxVoltage||12}V`;
+    case'switch':      return`バッテリースイッチ ${p.amps||100}A`;
+    default:           return d.amazonQ||'';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+let _gid=1; const uid=()=>String(_gid++);
+
+function snapToEdge(rawPx,rawPy,w,h){
+  const cx=Math.max(0,Math.min(w,rawPx)), cy=Math.max(0,Math.min(h,rawPy));
+  const dT=cy,dB=h-cy,dL=cx,dR=w-cx, m=Math.min(dT,dB,dL,dR);
+  if(m===dT) return{px:cx,py:0,edge:'top'};
+  if(m===dB) return{px:cx,py:h,edge:'bottom'};
+  if(m===dL) return{px:0,py:cy,edge:'left'};
+             return{px:w,py:cy,edge:'right'};
+}
+// ノードのポートリストを取得（バスバーは props.portCount から動的生成）
+function getNodePorts(node){
+  const d=COMP[node.type];
+  if(node.type!=='bus_pos'&&node.type!=='bus_neg') return d.ports;
+  const count=node.props?.portCount;
+  if(!count) return d.ports; // 旧データ互換：portCount 未設定なら従来の10ポート
+  const n=Math.max(2,Math.min(20,count));
+  const color=node.type==='bus_pos'?'#ef4444':'#374151';
+  const topN=Math.ceil(n/2), botN=n-topN;
+  const ports=[];
+  for(let i=0;i<topN;i++){
+    const px=((i+0.5)/topN)*d.w;
+    ports.push({id:`p${i}`,label:'',px:Math.round(px),py:0,color});
+  }
+  for(let i=0;i<botN;i++){
+    const px=((i+0.5)/botN)*d.w;
+    ports.push({id:`p${topN+i}`,label:'',px:Math.round(px),py:d.h,color});
+  }
+  return ports;
+}
+// ノードの実効サイズ（回転考慮後）
+function nodeEffSize(node){
+  const d=COMP[node.type];
+  const w=node.nodeW??d.w, h=node.nodeH??d.h;
+  const rot=((node.rotation||0)%360+360)%360;
+  return(rot===90||rot===270)?{w:h,h:w}:{w,h};
+}
+// ノードの回転を考慮したポート位置（実効座標系で返す）
+function nodePortPos(node,portId){
+  const d=COMP[node.type];
+  const w=node.nodeW??d.w, h=node.nodeH??d.h;
+  const sx=w/d.w, sy=h/d.h;
+  const ov=node.portPositions?.[portId];
+  let px,py;
+  if(ov){px=ov.px*sx;py=ov.py*sy;}
+  else{const p=getNodePorts(node).find(p=>p.id===portId);if(!p)return{px:0,py:0};px=p.px*sx;py=p.py*sy;}
+  // 回転変換（元座標 → 実効座標）
+  const rot=((node.rotation||0)%360+360)%360;
+  if(rot===90)  return{px:Math.round(h-py),py:Math.round(px)};
+  if(rot===180) return{px:Math.round(w-px),py:Math.round(h-py)};
+  if(rot===270) return{px:Math.round(py),py:Math.round(w-px)};
+  return{px:Math.round(px),py:Math.round(py)};
+}
+// 実効座標 (px, py) を元座標に逆変換（ポートドラッグ保存時に使用）
+function unrotatePortPos(node,effPx,effPy){
+  const d=COMP[node.type];
+  const w=node.nodeW??d.w, h=node.nodeH??d.h;
+  const rot=((node.rotation||0)%360+360)%360;
+  let px,py;
+  if(rot===90){px=effPy;py=h-effPx;}
+  else if(rot===180){px=w-effPx;py=h-effPy;}
+  else if(rot===270){px=w-effPy;py=effPx;}
+  else{px=effPx;py=effPy;}
+  return{px,py};
+}
+function portAbs(nodes,nodeId,portId){
+  const n=nodes.find(n=>n.id===nodeId); if(!n) return null;
+  const pos=nodePortPos(n,portId); return{x:n.x+pos.px,y:n.y+pos.py};
+}
+function catmullRom(pts){
+  if(!pts||pts.length<2) return '';
+  if(pts.length===2){
+    const[p,q]=pts; const dx=Math.max(Math.abs(q.x-p.x)*.45,55);
+    return`M${p.x},${p.y} C${(p.x+dx).toFixed(1)},${p.y} ${(q.x-dx).toFixed(1)},${q.y} ${q.x},${q.y}`;
+  }
+  const n=pts.length, ext=[pts[0],...pts,pts[n-1]]; let d=`M${pts[0].x},${pts[0].y}`;
+  for(let i=0;i<n-1;i++){
+    const[p0,p1,p2,p3]=[ext[i],ext[i+1],ext[i+2],ext[i+3]];
+    d+=` C${(p1.x+(p2.x-p0.x)/6).toFixed(1)},${(p1.y+(p2.y-p0.y)/6).toFixed(1)} ${(p2.x-(p3.x-p1.x)/6).toFixed(1)},${(p2.y-(p3.y-p1.y)/6).toFixed(1)} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+// 直線（ポリライン）
+function straightPath(pts){
+  if(!pts||pts.length<2) return '';
+  return 'M'+pts[0].x+','+pts[0].y+pts.slice(1).map(p=>` L${p.x},${p.y}`).join('');
+}
+// ポート出口方向を判定（right/left/top/bottom）— 回転後の表示座標で判定
+function portExitDir(nodes,nodeId,portId){
+  const node=nodes.find(n=>n.id===nodeId); if(!node) return 'right';
+  const {w:nw,h:nh}=nodeEffSize(node);
+  const pos=nodePortPos(node,portId); const tol=4;
+  if(pos.px<=tol) return 'left';
+  if(pos.px>=nw-tol) return 'right';
+  if(pos.py<=tol) return 'top';
+  if(pos.py>=nh-tol) return 'bottom';
+  return 'right';
+}
+function stubPt(x,y,dir,d){
+  return dir==='right'?{x:x+d,y}:dir==='left'?{x:x-d,y}:dir==='top'?{x,y:y-d}:{x,y:y+d};
+}
+// 軸平行セグメントがノードのバウンディングボックスと交差するか判定（回転後の実効サイズで判定）
+function segBlocked(ax,ay,bx,by,nodes,excludeIds=[],margin=8){
+  return nodes.some(n=>{
+    if(excludeIds.includes(n.id)) return false;
+    const {w:nw,h:nh}=nodeEffSize(n);
+    const rl=n.x-margin, rt=n.y-margin, rr=n.x+nw+margin, rb=n.y+nh+margin;
+    if(Math.abs(ay-by)<0.5){const x0=Math.min(ax,bx),x1=Math.max(ax,bx);return ay>rt&&ay<rb&&x1>rl&&x0<rr;}
+    if(Math.abs(ax-bx)<0.5){const y0=Math.min(ay,by),y1=Math.max(ay,by);return ax>rl&&ax<rr&&y1>rt&&y0<rb;}
+    return false;
+  });
+}
+// 配線同士の平行重複チェック（許容距離 tol 以内の平行セグメントが重なればtrue）
+function segBlockedByWires(ax,ay,bx,by,segs,tol=7){
+  if(!segs||segs.length===0) return false;
+  return segs.some(s=>{
+    // 両方水平
+    if(Math.abs(ay-by)<0.5&&Math.abs(s.ay-s.by)<0.5&&Math.abs(ay-s.ay)<tol){
+      const x0=Math.min(ax,bx),x1=Math.max(ax,bx),sx0=Math.min(s.ax,s.bx),sx1=Math.max(s.ax,s.bx);
+      return x1>sx0+4&&x0<sx1-4;
+    }
+    // 両方垂直
+    if(Math.abs(ax-bx)<0.5&&Math.abs(s.ax-s.bx)<0.5&&Math.abs(ax-s.ax)<tol){
+      const y0=Math.min(ay,by),y1=Math.max(ay,by),sy0=Math.min(s.ay,s.by),sy1=Math.max(s.ay,s.by);
+      return y1>sy0+4&&y0<sy1-4;
+    }
+    return false;
+  });
+}
+
+// 直角（オルソゴナル）: ポートスタブ + コンポーネント回避 + 配線重複回避
+// 戻り値: {path: SVG文字列, segs: [{ax,ay,bx,by},...]}
+// prevSegs: 先行配線のセグメント（重複回避に使用）
+function orthoPath(pts,nodes=[],fromId='',toId='',fromPortId='',toPortId='',prevSegs=[]){
+  if(!pts||pts.length<2) return{path:'',segs:[]};
+  if(pts.length===2){
+    const[p,q]=pts;
+    const STUB=28, PAD=40;
+    const fromDir=portExitDir(nodes,fromId,fromPortId);
+    const toDir=portExitDir(nodes,toId,toPortId);
+    const ps=stubPt(p.x,p.y,fromDir,STUB);
+    const qs=stubPt(q.x,q.y,toDir,STUB);
+    // 関連するノードのみで bounds を計算（遠くにある未接続機器の移動で経路が変わるのを防止）
+    const margin=80;
+    const minX=Math.min(p.x,q.x)-margin, maxX=Math.max(p.x,q.x)+margin;
+    const minY=Math.min(p.y,q.y)-margin, maxY=Math.max(p.y,q.y)+margin;
+    const relevantNodes=nodes.filter(n=>{
+      // 配線端のノードは必ず含める（外周ルートが端ノードを貫通しないように）
+      if(n.id===fromId||n.id===toId) return true;
+      const {w:nw,h:nh}=nodeEffSize(n);
+      return n.x+nw>minX && n.x<maxX && n.y+nh>minY && n.y<maxY;
+    });
+    const bounds=relevantNodes.map(n=>{const {w:nw,h:nh}=nodeEffSize(n);return{t:n.y,b:n.y+nh,l:n.x,r:n.x+nw};});
+    const ay_=(bounds.length?Math.min(...bounds.map(b=>b.t)):Math.min(ps.y,qs.y))-PAD;
+    const by_=(bounds.length?Math.max(...bounds.map(b=>b.b)):Math.max(ps.y,qs.y))+PAD;
+    const lx_=(bounds.length?Math.min(...bounds.map(b=>b.l)):Math.min(ps.x,qs.x))-PAD;
+    const rx_=(bounds.length?Math.max(...bounds.map(b=>b.r)):Math.max(ps.x,qs.x))+PAD;
+    const mx=(ps.x+qs.x)/2, my=(ps.y+qs.y)/2;
+    // ─── ルーティング: 決定論的 2 段階フォールバック ───
+    // Stage 1: L字（1コーナー）2候補 — 最もシンプルで美しい経路
+    // Stage 2: 基本6候補 — mid/外周経由
+    // Stage 3: 失敗時は L字HV 直線で描画し warning フラグを立てる（⚠️ 赤点線表示で人手調整を促す）
+    // ※ 配線重複回避(offCands/stubExtCands) は廃止 — 重複しても電気的には問題なく、
+    //   迂回ロジックが原因の不具合の方が大きいため。重複が気になる場合は中継点ドラッグで手動調整。
+    const lCands=[
+      [ps,{x:qs.x,y:ps.y},qs], // HV
+      [ps,{x:ps.x,y:qs.y},qs], // VH
+    ];
+    const base=[
+      [ps,{x:mx,y:ps.y},{x:mx,y:qs.y},qs],
+      [ps,{x:ps.x,y:my},{x:qs.x,y:my},qs],
+      [ps,{x:ps.x,y:ay_},{x:qs.x,y:ay_},qs],
+      [ps,{x:ps.x,y:by_},{x:qs.x,y:by_},qs],
+      [ps,{x:lx_,y:ps.y},{x:lx_,y:qs.y},qs],
+      [ps,{x:rx_,y:ps.y},{x:rx_,y:qs.y},qs],
+    ];
+    const cands=[...lCands,...base];
+    for(const mid of cands){
+      const all=[p,...mid,q];
+      let ok=true;
+      for(let i=0;i<all.length-1;i++){
+        const a=all[i],b=all[i+1];
+        const ex=i===0?[fromId]:i===all.length-2?[toId]:[];
+        if(segBlocked(a.x,a.y,b.x,b.y,nodes,ex)){ok=false;break;}
+      }
+      if(ok){
+        const segs=all.slice(0,-1).map((a,i)=>({ax:a.x,ay:a.y,bx:all[i+1].x,by:all[i+1].y}));
+        return{path:'M'+all.map(pt=>`${pt.x},${pt.y}`).join(' L'),segs};
+      }
+    }
+    // フォールバック: L字HV を warning 付きで返す（部品を貫く可能性あり → ⚠️表示）
+    const fb=[p,ps,{x:qs.x,y:ps.y},qs,q];
+    const segs=fb.slice(0,-1).map((a,i)=>({ax:a.x,ay:a.y,bx:fb[i+1].x,by:fb[i+1].y}));
+    return{path:'M'+fb.map(pt=>`${pt.x},${pt.y}`).join(' L'),segs,warning:true};
+  }
+  // 中継点あり: H-V エルボー（コンポーネント回避あり）
+  let d=`M${pts[0].x},${pts[0].y}`; const segs=[];
+  for(let i=0;i<pts.length-1;i++){
+    const p=pts[i],q=pts[i+1];
+    const exF=i===0?[fromId]:[];
+    const exT=i===pts.length-2?[toId]:[];
+    // H-V check
+    const hv1=segBlocked(p.x,p.y,q.x,p.y,nodes,exF);
+    const hv2=segBlocked(q.x,p.y,q.x,q.y,nodes,exT);
+    // V-H check
+    const vh1=segBlocked(p.x,p.y,p.x,q.y,nodes,exF);
+    const vh2=segBlocked(p.x,q.y,q.x,q.y,nodes,exT);
+    // V-H を優先（H-Vが塞がれていてV-Hが通れる場合）
+    if((hv1||hv2)&&!vh1&&!vh2){
+      d+=` L${p.x},${q.y} L${q.x},${q.y}`;
+      segs.push({ax:p.x,ay:p.y,bx:p.x,by:q.y},{ax:p.x,ay:q.y,bx:q.x,by:q.y});
+    } else {
+      d+=` L${q.x},${p.y} L${q.x},${q.y}`;
+      segs.push({ax:p.x,ay:p.y,bx:q.x,by:p.y},{ax:q.x,ay:p.y,bx:q.x,by:q.y});
+    }
+  }
+  return{path:d,segs};
+}
+// 直前点に対して 90° 補正したカーソル位置を返す（X差 vs Y差の大きい方の軸を採用）
+function snap90(prev,cursor){
+  const dx=Math.abs(cursor.x-prev.x), dy=Math.abs(cursor.y-prev.y);
+  return dx>=dy?{x:cursor.x,y:prev.y}:{x:prev.x,y:cursor.y};
+}
+// クリック式：水平/垂直のみで結ぶ。クリック時に snap90 補正済みなので隣接ウェイポイント間は H か V。
+// 最終ポート接続のみ、最後のウェイポイントとポート位置がずれている場合に L字コーナーを自動挿入。
+function clickPath(pts){
+  if(!pts||pts.length<2) return{path:'',segs:[]};
+  // 最後の点（終了ポート）が直前点と整列していなければコーナーを挿入
+  const fixed=[pts[0]];
+  for(let i=1;i<pts.length;i++){
+    const a=fixed[fixed.length-1], b=pts[i];
+    const sameX=Math.abs(a.x-b.x)<0.5, sameY=Math.abs(a.y-b.y)<0.5;
+    if(sameX||sameY){
+      fixed.push(b);
+    } else {
+      // 整列していない：L字コーナーを挿入（前セグメント方向の続きで自然な向きに）
+      // 直前セグメント方向：fixed[len-2] → a
+      let prevDir=null;
+      if(fixed.length>=2){
+        const p=fixed[fixed.length-2];
+        if(Math.abs(p.x-a.x)<0.5) prevDir='V';
+        else if(Math.abs(p.y-a.y)<0.5) prevDir='H';
+      }
+      const useVH = prevDir==='H'?true : prevDir==='V'?false : Math.abs(a.y-b.y)>Math.abs(a.x-b.x);
+      fixed.push(useVH?{x:a.x,y:b.y}:{x:b.x,y:a.y});
+      fixed.push(b);
+    }
+  }
+  let d=`M${fixed[0].x},${fixed[0].y}`;
+  const segs=[];
+  for(let i=1;i<fixed.length;i++){
+    const a=fixed[i-1],b=fixed[i];
+    d+=` L${b.x},${b.y}`;
+    segs.push({ax:a.x,ay:a.y,bx:b.x,by:b.y});
+  }
+  return{path:d,segs};
+}
+// 戻り値: {path, segs}
+function buildPath(pts,style,nodes=[],fromId='',toId='',fromPortId='',toPortId='',prevSegs=[]){
+  if(style==='straight') return{path:straightPath(pts),segs:[]};
+  if(style==='ortho') return orthoPath(pts,nodes,fromId,toId,fromPortId,toPortId,prevSegs);
+  if(style==='click') return clickPath(pts);
+  return{path:catmullRom(pts),segs:[]};
+}
+function connPts(conn,nodes){
+  const p1=portAbs(nodes,conn.fromNode,conn.fromPort);
+  const p2=portAbs(nodes,conn.toNode,conn.toPort);
+  if(!p1||!p2) return null;
+  return[p1,...(conn.waypoints||[]),p2];
+}
+function centroid(pts){ return pts.reduce((s,p)=>({x:s.x+p.x/pts.length,y:s.y+p.y/pts.length}),{x:0,y:0}); }
+function specLine(node){
+  const p=node.props;
+  switch(node.type){
+    case'battery':    return`${p.voltage||12}V ${p.ah||'?'}Ah (${p.type||''})`;
+    case'inverter':   return`${p.watts||'?'}W ${p.type||'正弦波'}`;
+    case'solar_panel':return`${p.watts||'?'}W / Voc ${p.voc||'?'}V`;
+    case'mppt':       return`最大 ${p.maxA||'?'}A`;
+    case'pwm':        return`最大 ${p.maxA||'?'}A`;
+    case'dc_dc':      return`${p.inputV||'?'}V→${p.outputV||'?'}V ${p.maxA||'?'}A`;
+    case'charger':    return`${p.outputV||12}V ${p.maxA||'?'}A`;
+    case'fuse':       return`${p.amps||'?'}A ${p.type||'ANL'}`;
+    case'breaker':    return`${p.amps||'?'}A`;
+    case'switch':     return`${p.amps||'?'}A`;
+    case'dc_load':    return`${p.watts||'?'}W DC${p.voltage||12}V`;
+    case'ac_load':    return`${p.watts||'?'}W AC`;
+    case'shore_power':return`AC${p.voltage||100}V`;
+    default:return'';
+  }
+}
+function portLabelOffset(px,py,w,h){
+  const tol=4;
+  if(py<=tol)   return{left:px-4,top:py+5,  transform:'translateX(-50%)'};
+  if(py>=h-tol) return{left:px-4,top:py-14, transform:'translateX(-50%)'};
+  if(px<=tol)   return{left:px+6,top:py-6};
+  return               {left:px-28,top:py-6};
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Electrical Check Engine
+// ═══════════════════════════════════════════════════════════════
+function runChecks(nodes,conns){
+  const items=[];
+  if(nodes.length===0) return[{level:'info',cat:'情報',title:'部品がありません',details:[]}];
+
+  // ── 1. Connectivity ──
+  const adj={};
+  nodes.forEach(n=>{adj[n.id]=new Set();});
+  conns.forEach(c=>{if(adj[c.fromNode])adj[c.fromNode].add(c.toNode);if(adj[c.toNode])adj[c.toNode].add(c.fromNode);});
+
+  const isolated=nodes.filter(n=>adj[n.id].size===0);
+  if(isolated.length>0){
+    items.push({level:'error',cat:'接続',title:`未接続の部品 (${isolated.length}件)`,
+      details:isolated.map(n=>`${COMP[n.type].label}: ${n.props.name}`)});
+  }
+  // BFS for connected components
+  const connectedNodes=nodes.filter(n=>adj[n.id].size>0);
+  if(connectedNodes.length>0){
+    const visited=new Set();
+    const q=[connectedNodes[0].id];
+    while(q.length>0){const c=q.shift();if(visited.has(c))continue;visited.add(c);adj[c].forEach(nb=>{if(!visited.has(nb))q.push(nb);});}
+    const discon=connectedNodes.filter(n=>!visited.has(n.id));
+    if(discon.length>0){
+      items.push({level:'warn',cat:'接続',title:`回路が分離しています (${discon.length}箇所)`,
+        details:discon.map(n=>`${COMP[n.type].label}: ${n.props.name}`)});
+    } else if(isolated.length===0){
+      items.push({level:'ok',cat:'接続',title:'全部品が一つの回路で接続されています',details:[]});
+    }
+  }
+
+  // ── ショート回路チェック（極性違反） ──
+  // 赤(+)ポート と 黒(−)ポート を直接結ぶ配線はショート回路
+  const shorts=[];
+  const mixed=[]; // AC ⇔ DC の混在
+  conns.forEach(c=>{
+    const fn=nodes.find(n=>n.id===c.fromNode), tn=nodes.find(n=>n.id===c.toNode);
+    if(!fn||!tn) return;
+    const fpc=getNodePorts(fn).find(p=>p.id===c.fromPort)?.color;
+    const tpc=getNodePorts(tn).find(p=>p.id===c.toPort)?.color;
+    if(!fpc||!tpc) return;
+    const isRedDark=(fpc==='#ef4444'&&tpc==='#374151')||(fpc==='#374151'&&tpc==='#ef4444');
+    const isACvsDC=(fpc==='#6366f1'&&(tpc==='#ef4444'||tpc==='#374151'))||
+                   (tpc==='#6366f1'&&(fpc==='#ef4444'||fpc==='#374151'));
+    const nm=`${fn.props.name||'?'}(${c.fromPort}) ⚡ ${tn.props.name||'?'}(${c.toPort})`;
+    if(isRedDark) shorts.push(nm);
+    else if(isACvsDC) mixed.push(nm);
+  });
+  if(shorts.length>0){
+    items.push({level:'error',cat:'安全',title:`⚡ ショート回路の危険 (${shorts.length}本)`,
+      details:['+極(赤)と−極(黒)が直接接続されています。配線を見直してください。',...shorts]});
+  }
+  if(mixed.length>0){
+    items.push({level:'error',cat:'安全',title:`AC/DC 混在配線 (${mixed.length}本)`,
+      details:['AC ポートと DC ポートを直接接続しています。機器を破損する恐れがあります。',...mixed]});
+  }
+
+  // ── 2. Wire capacity (派生値ベース) ──
+  let anyWireOk=false;
+  conns.forEach(c=>{
+    const fn=nodes.find(n=>n.id===c.fromNode), tn=nodes.find(n=>n.id===c.toNode);
+    const nm=`${fn?.props.name||'?'} → ${tn?.props.name||'?'}`;
+    const d=getDerivedWire(c,nodes,conns,12,null); // 簡易: 経路 segs なしで判定（lenM はフォールバック1）
+    if(d.amps>0&&d.wireSize){
+      const w=WIRE_SIZES.find(w=>w.label===d.wireSize);
+      if(w&&d.amps>w.maxA){
+        items.push({level:'error',cat:'配線',title:'電線容量オーバー',
+          details:[`${nm}: ${d.amps}A > ${d.wireSize}の最大${w.maxA}A`]});
+      } else { anyWireOk=true; }
+    }
+  });
+  if(anyWireOk) items.push({level:'ok',cat:'配線',title:'電線容量チェックOK',details:[]});
+
+  // ── 3. Voltage compatibility ──
+  let voltErrors=0;
+  conns.forEach(c=>{
+    const fn=nodes.find(n=>n.id===c.fromNode), tn=nodes.find(n=>n.id===c.toNode);
+    if(!fn||!tn) return;
+    const pairs=[
+      {a:fn,b:tn,at:'battery',bt:'inverter',aV:n=>n.props.voltage,bV:n=>n.props.inputV,label:'バッテリー↔インバーター'},
+      {a:fn,b:tn,at:'inverter',bt:'battery',aV:n=>n.props.inputV,bV:n=>n.props.voltage,label:'バッテリー↔インバーター'},
+      {a:fn,b:tn,at:'battery',bt:'dc_dc',aV:n=>n.props.voltage,bV:n=>n.props.inputV,label:'バッテリー↔DC-DC'},
+      {a:fn,b:tn,at:'dc_dc',bt:'battery',aV:n=>n.props.inputV,bV:n=>n.props.voltage,label:'バッテリー↔DC-DC'},
+    ];
+    pairs.forEach(({a,b,at,bt,aV,bV,label})=>{
+      if(a.type===at&&b.type===bt){
+        const va=aV(a), vb=bV(b);
+        if(va&&vb&&va!==vb){
+          voltErrors++;
+          items.push({level:'error',cat:'電圧',title:`電圧不一致 (${label})`,
+            details:[`${a.props.name}(${va}V) ↔ ${b.props.name}(${vb}V)`]});
+        }
+      }
+    });
+  });
+  if(voltErrors===0&&nodes.some(n=>n.type==='battery'))
+    items.push({level:'ok',cat:'電圧',title:'電圧整合性チェックOK',details:[]});
+
+  // ── 4. MPPT/PWM solar current ──
+  nodes.filter(n=>n.type==='mppt'||n.type==='pwm').forEach(ctrl=>{
+    const solar=conns.filter(c=>c.fromNode===ctrl.id||c.toNode===ctrl.id)
+      .map(c=>{const o=c.fromNode===ctrl.id?nodes.find(n=>n.id===c.toNode):nodes.find(n=>n.id===c.fromNode);return o?.type==='solar_panel'?o:null;}).filter(Boolean);
+    if(solar.length>0){
+      const isc=solar.reduce((s,p)=>s+(+p.props.isc||0),0);
+      const max=+ctrl.props.maxA||0;
+      if(max>0&&isc>max)
+        items.push({level:'warn',cat:'容量',title:`ソーラー電流超過 (${ctrl.props.name})`,details:[`Isc合計 ${isc.toFixed(1)}A > コントローラー最大 ${max}A`]});
+      else if(max>0)
+        items.push({level:'ok',cat:'容量',title:`${ctrl.props.name}: ソーラー電流OK`,details:[`${isc.toFixed(1)}A / ${max}A`]});
+    }
+  });
+
+  // ── 5. Inverter load ──
+  nodes.filter(n=>n.type==='inverter').forEach(inv=>{
+    const loads=conns.filter(c=>c.fromNode===inv.id||c.toNode===inv.id)
+      .map(c=>{const o=c.fromNode===inv.id?nodes.find(n=>n.id===c.toNode):nodes.find(n=>n.id===c.fromNode);return o?.type==='ac_load'?o:null;}).filter(Boolean);
+    if(loads.length>0){
+      const total=loads.reduce((s,l)=>s+(+l.props.watts||0),0);
+      const invW=+inv.props.watts||0;
+      if(invW>0){
+        const pct=Math.round(total/invW*100);
+        if(total>invW)
+          items.push({level:'error',cat:'容量',title:`インバーター容量オーバー (${inv.props.name})`,details:[`AC機器合計 ${total}W > 定格 ${invW}W`]});
+        else if(total>invW*0.8)
+          items.push({level:'warn',cat:'容量',title:`インバーター高負荷 ${pct}% (${inv.props.name})`,details:[`AC機器合計 ${total}W / 定格 ${invW}W`]});
+        else
+          items.push({level:'ok',cat:'容量',title:`${inv.props.name}: 負荷OK (${pct}%)`,details:[`${total}W / ${invW}W`]});
+      }
+    }
+  });
+
+  // ── 保護デバイス（ヒューズ・ブレーカー・スイッチ）の提案 ──
+  // 指定ノード・ポートから出発し、バスバーは通過、特定の保護デバイスに到達するか BFS で判定
+  function hasProtectionFromPort(startId,startPort,maxDepth=3){
+    const visited=new Set([startId]);
+    let frontier=conns.filter(c=>(c.fromNode===startId&&c.fromPort===startPort)||(c.toNode===startId&&c.toPort===startPort))
+      .map(c=>c.fromNode===startId?c.toNode:c.fromNode);
+    for(let d=0;d<maxDepth;d++){
+      const next=[];
+      for(const id of frontier){
+        if(visited.has(id)) continue;
+        visited.add(id);
+        const n=nodes.find(x=>x.id===id); if(!n) continue;
+        if(n.type==='fuse'||n.type==='breaker'||n.type==='switch') return n;
+        // バスバー / バスバー類・バッテリーは通過（同一 DC バス上の保護装置を検出するため）
+        if(n.type==='bus_pos'||n.type==='bus_neg'||n.type==='bus_bar'||n.type==='battery'){
+          conns.filter(c=>c.fromNode===id||c.toNode===id).forEach(c=>{
+            next.push(c.fromNode===id?c.toNode:c.fromNode);
+          });
+        }
+      }
+      frontier=next;
+      if(!frontier.length) break;
+    }
+    return null;
+  }
+  // ① バッテリー+端子に保護装置（ヒューズ/ブレーカー/スイッチ）が無い場合
+  nodes.filter(n=>n.type==='battery').forEach(bat=>{
+    // 接続がない場合はスキップ
+    const hasAnyWire=conns.some(c=>c.fromNode===bat.id||c.toNode===bat.id);
+    if(!hasAnyWire) return;
+    const prot=hasProtectionFromPort(bat.id,'pos',3);
+    if(!prot){
+      items.push({level:'warn',cat:'安全',title:`バッテリー+端子に保護装置がありません (${bat.props.name})`,
+        details:[
+          'バッテリーの+極端子は配線が短絡した際の発火事故を防ぐため、最も近い位置にヒューズ（または ANL ヒューズ＋ブレーカー）を設置してください。',
+          '推奨: ⊡ ヒューズ または ⊕ サーキットブレーカー をバッテリーと負荷の間に配置'
+        ]});
+    }
+  });
+  // ② インバーター DC+ に保護装置が無い場合（高電流装置）
+  nodes.filter(n=>n.type==='inverter').forEach(inv=>{
+    const hasAnyWire=conns.some(c=>(c.fromNode===inv.id&&c.fromPort==='dc_pos')||(c.toNode===inv.id&&c.toPort==='dc_pos'));
+    if(!hasAnyWire) return;
+    const prot=hasProtectionFromPort(inv.id,'dc_pos',3);
+    if(!prot){
+      const w=+inv.props.watts||0;
+      const v=+inv.props.inputV||12;
+      const fuseA=v>0?Math.ceil((w/v/0.85)*1.25/10)*10:100;
+      items.push({level:'warn',cat:'安全',title:`インバーター DC+ に専用ヒューズがありません (${inv.props.name})`,
+        details:[`高電流が流れる経路には、機器近傍にヒューズが推奨されます。`,`推奨容量: 約 ${fuseA}A の ⊡ ANL ヒューズ`]});
+    }
+  });
+  // ③ MPPT のソーラー側に保護装置が無い場合（任意推奨）
+  nodes.filter(n=>n.type==='mppt'||n.type==='pwm').forEach(ctrl=>{
+    const hasSolarWire=conns.some(c=>(c.fromNode===ctrl.id&&c.fromPort==='solar_pos')||(c.toNode===ctrl.id&&c.toPort==='solar_pos'));
+    if(!hasSolarWire) return;
+    const prot=hasProtectionFromPort(ctrl.id,'solar_pos',3);
+    if(!prot){
+      const maxA=+ctrl.props.maxA||0;
+      const fuseA=Math.ceil(maxA*1.25/5)*5;
+      items.push({level:'info',cat:'安全',title:`ソーラー入力にヒューズ推奨 (${ctrl.props.name})`,
+        details:[`屋外の長い配線は短絡リスクがあるため、ソーラーパネル付近に保護装置の設置を推奨します。`,`推奨容量: 約 ${fuseA||30}A の ⊡ ヒューズ`]});
+    }
+  });
+  // ④ 主スイッチ（バッテリー切断）の有無を確認
+  const hasSwitch=nodes.some(n=>n.type==='switch');
+  const hasBattery=nodes.some(n=>n.type==='battery');
+  if(hasBattery&&!hasSwitch){
+    items.push({level:'info',cat:'安全',title:`バッテリースイッチが未配置`,
+      details:['整備・緊急時に電源を切れるよう、メインスイッチ ◎ をバッテリー近傍に配置することを推奨します。']});
+  }
+  // ⑤ ヒューズ/スイッチ/ブレーカーの入出方向チェック
+  // 規約：「入」ポートは源（バッテリー・MPPT B+・充電器 DC+）側、「出」は負荷側に接続する
+  const SOURCE_TYPES=new Set(['battery']);
+  const SOURCE_PORTS=[
+    {type:'mppt',port:'bat_pos'},{type:'mppt',port:'bat_neg'},
+    {type:'pwm',port:'bat_pos'},{type:'pwm',port:'bat_neg'},
+    {type:'charger',port:'dc_pos'},{type:'charger',port:'dc_neg'},
+    {type:'dc_dc',port:'out_pos'},{type:'dc_dc',port:'out_neg'},
+  ];
+  const isSourceSide=(n,portId)=>{
+    if(!n) return false;
+    if(SOURCE_TYPES.has(n.type)) return true;
+    return SOURCE_PORTS.some(s=>s.type===n.type&&s.port===portId);
+  };
+  nodes.filter(n=>n.type==='fuse'||n.type==='breaker'||n.type==='switch').forEach(prot=>{
+    const inConns=conns.filter(c=>(c.fromNode===prot.id&&c.fromPort==='in')||(c.toNode===prot.id&&c.toPort==='in'));
+    const outConns=conns.filter(c=>(c.fromNode===prot.id&&c.fromPort==='out')||(c.toNode===prot.id&&c.toPort==='out'));
+    if(inConns.length===0||outConns.length===0) return; // 片側未接続はスキップ
+    // 直接接続されている相手を取得
+    const getOther=(c,id)=>c.fromNode===id?{nodeId:c.toNode,portId:c.toPort}:{nodeId:c.fromNode,portId:c.fromPort};
+    let inIsLoad=false, outIsSource=false;
+    const inOther=getOther(inConns[0],prot.id);
+    const inNode=nodes.find(n=>n.id===inOther.nodeId);
+    const outOther=getOther(outConns[0],prot.id);
+    const outNode=nodes.find(n=>n.id===outOther.nodeId);
+    // 「出」側が直接 source（電源側）に繋がっていたら反転
+    if(isSourceSide(outNode,outOther.portId)){
+      // かつ「入」側が負荷系（バスバー/負荷/インバーター等）なら確定的に反転
+      const inIsBusOrLoad=inNode&&['bus_pos','bus_neg','dc_load','ac_load','inverter','bus_bar'].includes(inNode.type);
+      if(inIsBusOrLoad||!isSourceSide(inNode,inOther.portId)){
+        items.push({level:'warn',cat:'安全',title:`${COMP[prot.type].label}の入出方向が逆 (${prot.props.name})`,
+          details:[
+            `${prot.props.name}の「出」端子が源側 (${outNode?.props.name||outNode?.type}) に接続されています。`,
+            `規約：「入」端子を源（バッテリー・MPPT B+・充電器 DC+ 等）側、「出」端子を負荷側に接続してください。`,
+            `※ 電気的には双方向に動作しますが、配線図の可読性と整備性のため向きを揃えることを推奨します。`
+          ]});
+      }
+    }
+  });
+
+  // 全保護OK の総括
+  const safetyHasIssue=items.some(it=>it.cat==='安全');
+  if(!safetyHasIssue&&hasBattery){
+    items.push({level:'ok',cat:'安全',title:`保護装置 配置 OK`,details:['ヒューズ・ブレーカー・スイッチの配置・向きに問題はありません。']});
+  }
+
+  // ── 6. Wire size vs amps summary (派生値ベース) ──
+  const noAmps=conns.filter(c=>{
+    const d=getDerivedWire(c,nodes,conns,12,null);
+    return !(d.amps>0);
+  });
+  if(noAmps.length>0){
+    items.push({level:'info',cat:'配線',title:`電流が確定できない配線 ${noAmps.length}本`,details:['両端機器の仕様が未入力か、バスバー経由の集計が困難な配線です']});
+  }
+
+  return items;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Palette
+// ═══════════════════════════════════════════════════════════════
+function Palette({open,onClose,onTapPlace}){
+  const bycat=useMemo(()=>{
+    const m={}; CATS.forEach(c=>{m[c]=[];});
+    Object.entries(COMP).forEach(([k,v])=>{if(m[v.cat])m[v.cat].push({key:k,...v});});
+    return m;
+  },[]);
+  return(
+    <div className={`pal${open?' open':''}`}>
+      {CATS.map(cat=>bycat[cat].length===0?null:(
+        <div className="pal-sec" key={cat}>
+          <div className="pal-cat">{cat}</div>
+          {bycat[cat].map(d=>{
+            const desc=COMP_DESC[d.key];
+            const title=desc?`${d.label}\n\n【役割】${desc.role}\n\n【配線】${desc.wiring}`:d.label;
+            return(
+              <div key={d.key} className="pal-item" style={{borderColor:d.color+'40',background:d.bg}}
+                title={title}
+                draggable
+                onDragStart={e=>{e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('compType',d.key);}}
+                onClick={()=>{/* タッチ用フォールバック：クリックで中央付近に配置 */if(onTapPlace){onTapPlace(d.key);if(onClose)setTimeout(onClose,100);}}}>
+                <span className="p-ico">{d.icon}</span>
+                <span style={{color:d.color,lineHeight:1.2}}>{d.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Node Element
+// ═══════════════════════════════════════════════════════════════
+function NodeEl({node,selected,isPortEdit,drawingWire,onMouseDown,onPortMouseDown,onPortMouseUp,onDelete,onResizeStart}){
+  const d=COMP[node.type]; const spec=specLine(node);
+  // 元サイズ（リサイズ計算用）と実効サイズ（描画用）
+  const origW=node.nodeW??d.w, origH=node.nodeH??d.h;
+  const {w:nw,h:nh}=nodeEffSize(node);
+  return(
+    <div className={`nd${selected?' sel':''}${isPortEdit?' port-edit-mode':''}`}
+      style={{left:node.x,top:node.y,width:nw,height:nh,borderColor:d.color,background:d.bg,zIndex:selected||isPortEdit?50:10,touchAction:'none'}}
+      onPointerDown={e=>onMouseDown(e,node.id)}>
+      {isPortEdit&&<div className="port-edit-badge">ポート移動中</div>}
+      {selected&&<button className="nd-del" onPointerDown={e=>{e.stopPropagation();onDelete(node.id);}}>✕</button>}
+      {selected&&<div className="nd-resize" style={{touchAction:'none'}} onPointerDown={e=>{e.stopPropagation();onResizeStart(e,node.id,origW,origH);}}/>}
+      <div className="nd-body" style={{pointerEvents:'none'}}>
+        <div className="nd-ico">{node.props.iconUrl?<img src={node.props.iconUrl} alt="" draggable={false}/>:d.icon}</div>
+        <div className="nd-name" style={{fontSize:10,fontWeight:700,color:d.color}}>{node.props.name}</div>
+        {spec&&<div className="nd-spec" style={{color:d.color+'cc'}}>{spec}</div>}
+      </div>
+      {getNodePorts(node).map(pd=>{
+        const pos=nodePortPos(node,pd.id);
+        const isSrc=drawingWire?.nodeId===node.id&&drawingWire?.portId===pd.id;
+        const canTgt=drawingWire&&drawingWire.nodeId!==node.id;
+        const loff=portLabelOffset(pos.px,pos.py,nw,nh);
+        return(
+          <React.Fragment key={pd.id}>
+            <div className={`port${isSrc?' drawing-src':''}${canTgt?' can-target':''}${isPortEdit?' edit-mode':''}`}
+              title={pd.label}
+              style={{left:pos.px,top:pos.py,background:pd.color,cursor:isPortEdit?'move':'crosshair',touchAction:'none'}}
+              data-node-id={node.id} data-port-id={pd.id}
+              onPointerDown={e=>{
+                e.stopPropagation();
+                // 暗黙的ポインタキャプチャを解除（タッチ操作で別ポートに pointerup が届くようにする）
+                try{e.target.releasePointerCapture(e.pointerId);}catch{}
+                onPortMouseDown(e,node.id,pd.id);
+              }}
+              onPointerUp={e=>{e.stopPropagation();onPortMouseUp(node.id,pd.id);}}
+            />
+            {pd.label&&<div className="port-lbl" style={{position:'absolute',left:pos.px,top:pos.py,...loff}}>{pd.label}</div>}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Wire Gauge Calc
+// ═══════════════════════════════════════════════════════════════
+function WireGaugeCalc({systemV}){
+  const [amps,setA]=useState(''); const [len,setL]=useState(''); const [volt,setV]=useState(String(systemV));
+  useEffect(()=>setV(String(systemV)),[systemV]);
+  const res=useMemo(()=>calcWire(+amps,+len,+volt),[amps,len,volt]);
+  const fuse=amps?suggestFuse(+amps):null;
+  return(
+    <div className="psec">
+      <div className="ptitle">⚡ 電線サイズ計算</div>
+      <div className="wg-grid">
+        <div className="wg-field"><label>電流 (A)</label><input type="number" min="0" value={amps} onChange={e=>setA(e.target.value)} placeholder="例: 40"/></div>
+        <div className="wg-field"><label>ケーブル長 (m)</label><input type="number" min="0" value={len} onChange={e=>setL(e.target.value)} placeholder="例: 3"/></div>
+        <div className="wg-field"><label>電圧 (V)</label><input type="number" min="0" value={volt} onChange={e=>setV(e.target.value)} placeholder="12/24/48"/></div>
+        <div className="wg-field" style={{display:'flex',alignItems:'flex-end',paddingBottom:4}}><span style={{fontSize:10,color:'#94a3b8'}}>電圧降下3%・KIV空中単線基準</span></div>
+      </div>
+      {res&&<div className="gc"><div className="gc-big">{res.label}</div><div className="gc-row"><span>AWG {res.awg}</span><span>最大 {res.maxA}A</span></div></div>}
+      {fuse&&<div className="fc"><div style={{fontSize:10,color:'#c2410c',fontWeight:700,marginBottom:2}}>推奨ヒューズ</div><div className="fc-big">{fuse}A</div></div>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Property Panel
+// ═══════════════════════════════════════════════════════════════
+function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,setPEN,onUpdateNode,onUpdateConn,onDelSelected,onResizeNode,onRotateNode,onChangeBusPortCount,open}){
+  const cls=`rpanel${open?' open':''}`;
+  const fileRef=useRef(null);
+
+  if(selected?.type==='node'){
+    const node=nodes.find(n=>n.id===selected.id); if(!node) return<div className={cls}/>;
+    const d=COMP[node.type]; const p=node.props;
+    const set=(k,v)=>onUpdateNode(node.id,{...p,[k]:v});
+    const inPEM=portEditNode===node.id;
+    return(
+      <div className={cls}>
+        <div className="psec">
+          <div className="ptitle" style={{color:d.color}}>{d.icon} {d.label}</div>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+            <div style={{width:40,height:40,border:'1px solid #e2e8f0',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,background:d.bg}}>
+              {p.iconUrl?<img src={p.iconUrl} style={{width:32,height:32,objectFit:'contain'}}/>:d.icon}
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <button className="btn btn-ghost btn-sm" onClick={()=>fileRef.current.click()}>📎 PNGに変更</button>
+              {p.iconUrl&&<button className="btn btn-ghost btn-sm" onClick={()=>set('iconUrl',null)}>↩ 元に戻す</button>}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}}
+              onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>set('iconUrl',ev.target.result);r.readAsDataURL(f);e.target.value='';}}/>
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:8}}>
+            <button className={`btn btn-sm ${inPEM?'btn-warn':'btn-ghost'}`} style={{flex:1}} onClick={()=>setPEN(inPEM?null:node.id)}>
+              {inPEM?'✓ ポート移動完了':'🔧 ポート位置'}
+            </button>
+            <button className="btn btn-sm btn-ghost" style={{flex:1}} title="90°回転（要素の形とポート位置が回転、文字は維持）"
+              onClick={()=>onRotateNode(node.id,((node.rotation||0)+90)%360)}>
+              🔄 90°回転<span style={{fontSize:9,color:'#94a3b8',marginLeft:4}}>{node.rotation||0}°</span>
+            </button>
+          </div>
+          {inPEM&&<div className="tip-box">ポート(●)をドラッグ → 辺にスナップ<br/>離した時点で確定します</div>}
+          <div className="prow" style={{marginTop:8}}><div className="plbl">名前</div><input className="pinput" value={p.name||''} onChange={e=>set('name',e.target.value)}/></div>
+          {p.watts!==undefined&&<div className="prow"><div className="plbl">定格出力 (W)</div><input className="pinput" type="number" value={p.watts||''} onChange={e=>set('watts',+e.target.value)}/></div>}
+          {p.voc!==undefined&&<div className="row2"><div className="prow"><div className="plbl">Voc (V)</div><input className="pinput" type="number" value={p.voc||''} onChange={e=>set('voc',+e.target.value)}/></div><div className="prow"><div className="plbl">Isc (A)</div><input className="pinput" type="number" value={p.isc||''} onChange={e=>set('isc',+e.target.value)}/></div></div>}
+          {p.ah!==undefined&&<><div className="row2"><div className="prow"><div className="plbl">電圧 (V)</div><select className="psel" value={p.voltage||12} onChange={e=>set('voltage',+e.target.value)}><option value={12}>12V</option><option value={24}>24V</option><option value={48}>48V</option></select></div><div className="prow"><div className="plbl">容量 (Ah)</div><input className="pinput" type="number" value={p.ah||''} onChange={e=>set('ah',+e.target.value)}/></div></div><div className="prow"><div className="plbl">種別</div><select className="psel" value={p.type||'LiFePO4'} onChange={e=>set('type',e.target.value)}><option>LiFePO4</option><option>AGM</option><option>GEL</option><option>鉛蓄電池</option></select></div></>}
+          {p.maxA!==undefined&&<div className="prow"><div className="plbl">最大電流 (A)</div><input className="pinput" type="number" value={p.maxA||''} onChange={e=>set('maxA',+e.target.value)}/></div>}
+          {(node.type==='bus_pos'||node.type==='bus_neg')&&<div className="prow">
+            <div className="plbl">ポート数</div>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <button type="button" className="btn btn-ghost btn-sm" style={{padding:'2px 8px'}}
+                onClick={()=>{const cur=p.portCount??10;const nv=Math.max(2,cur-1);if(nv!==cur)(onChangeBusPortCount||((id,c)=>set('portCount',c)))(node.id,nv);}}>−</button>
+              <input className="pinput" type="number" min={2} max={16} style={{textAlign:'center',flex:1}}
+                value={p.portCount??10}
+                onChange={e=>{const nv=Math.max(2,Math.min(16,+e.target.value||10));const cur=p.portCount??10;if(nv!==cur)(onChangeBusPortCount||((id,c)=>set('portCount',c)))(node.id,nv);}}/>
+              <button type="button" className="btn btn-ghost btn-sm" style={{padding:'2px 8px'}}
+                onClick={()=>{const cur=p.portCount??10;const nv=Math.min(16,cur+1);if(nv!==cur)(onChangeBusPortCount||((id,c)=>set('portCount',c)))(node.id,nv);}}>+</button>
+            </div>
+            <div style={{fontSize:10,color:'#94a3b8',marginTop:2}}>※ 削減時、不要ポートに接続中の配線は削除されます</div>
+          </div>}
+          {p.maxVoltage!==undefined&&<div className="prow"><div className="plbl">最大電圧 (V)</div><input className="pinput" type="number" value={p.maxVoltage||''} onChange={e=>set('maxVoltage',+e.target.value)}/></div>}
+          {p.inputV!==undefined&&p.outputV!==undefined&&<div className="row2"><div className="prow"><div className="plbl">入力電圧</div><select className="psel" value={p.inputV||24} onChange={e=>set('inputV',+e.target.value)}><option value={12}>12V</option><option value={24}>24V</option><option value={48}>48V</option></select></div><div className="prow"><div className="plbl">出力電圧</div><select className="psel" value={p.outputV||12} onChange={e=>set('outputV',+e.target.value)}><option value={5}>5V</option><option value={12}>12V</option><option value={24}>24V</option></select></div></div>}
+          {p.inputV!==undefined&&p.outputV===undefined&&<div className="prow"><div className="plbl">入力電圧 (V)</div><select className="psel" value={p.inputV||12} onChange={e=>set('inputV',+e.target.value)}><option value={12}>12V</option><option value={24}>24V</option><option value={48}>48V</option></select></div>}
+          {p.type!==undefined&&p.watts!==undefined&&p.ah===undefined&&<div className="prow"><div className="plbl">種別</div><select className="psel" value={p.type||'正弦波'} onChange={e=>set('type',e.target.value)}><option>正弦波</option><option>疑似正弦波</option></select></div>}
+          {p.amps!==undefined&&<div className="row2"><div className="prow"><div className="plbl">定格 (A)</div><input className="pinput" type="number" value={p.amps||''} onChange={e=>set('amps',+e.target.value)}/></div>{p.type!==undefined&&p.ah===undefined&&<div className="prow"><div className="plbl">種別</div><select className="psel" value={p.type||'ANL'} onChange={e=>set('type',e.target.value)}><option>ANL</option><option>ATC</option><option>MAXI</option><option>管ヒューズ</option></select></div>}</div>}
+          {/* ── 役割と配線の説明 ── */}
+          {COMP_DESC[node.type]&&(
+            <details className="desc-card" style={{marginTop:10,background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:8,padding:'8px 10px'}}>
+              <summary style={{cursor:'pointer',fontSize:11,fontWeight:700,color:'#0369a1',userSelect:'none'}}>💡 役割と配線方法</summary>
+              <div style={{marginTop:8,fontSize:11.5,lineHeight:1.6,color:'#0c4a6e'}}>
+                <div style={{marginBottom:6}}><span style={{fontWeight:700,color:'#0369a1'}}>役割：</span>{COMP_DESC[node.type].role}</div>
+                <div style={{marginBottom:6}}><span style={{fontWeight:700,color:'#0369a1'}}>配線：</span>{COMP_DESC[node.type].wiring}</div>
+                <div><span style={{fontWeight:700,color:'#0369a1'}}>ポイント：</span>{COMP_DESC[node.type].tips}</div>
+              </div>
+            </details>
+          )}
+          <hr style={{border:'none',borderTop:'1px solid #f1f5f9',margin:'8px 0'}}/>
+          {/* ── Size ── */}
+          <div className="ptitle" style={{marginBottom:6}}>📐 サイズ</div>
+          {(()=>{
+            const d=COMP[node.type];
+            const origW=node.nodeW??d.w, origH=node.nodeH??d.h;
+            const rot=((node.rotation||0)%360+360)%360;
+            const isRot=(rot===90||rot===270);
+            // 表示は実効サイズ（回転後の見た目寸法）
+            const dispW=isRot?origH:origW, dispH=isRot?origW:origH;
+            // 入力された表示サイズを元サイズに変換して保存
+            const applyW=v=>isRot?onResizeNode(node.id,origW,v):onResizeNode(node.id,v,origH);
+            const applyH=v=>isRot?onResizeNode(node.id,v,origH):onResizeNode(node.id,origW,v);
+            return(<>
+            <div className="row2">
+              <div className="prow"><div className="plbl">幅 (px)</div>
+                <input className="pinput" type="number" min={60} value={dispW}
+                  onChange={e=>applyW(+e.target.value)}/></div>
+              <div className="prow"><div className="plbl">高さ (px)</div>
+                <input className="pinput" type="number" min={36} value={dispH}
+                  onChange={e=>applyH(+e.target.value)}/></div>
+            </div>
+            <div className="row2">
+              <div className="prow"><div className="plbl">幅 (cm)</div>
+                <input className="pinput" type="number" min={1} step={0.5}
+                  value={(dispW/10).toFixed(1)}
+                  onChange={e=>applyW(Math.round(+e.target.value*10))}/></div>
+              <div className="prow"><div className="plbl">高さ (cm)</div>
+                <input className="pinput" type="number" min={1} step={0.5}
+                  value={(dispH/10).toFixed(1)}
+                  onChange={e=>applyH(Math.round(+e.target.value*10))}/></div>
+            </div>
+            <div style={{fontSize:9,color:'#94a3b8',marginTop:2}}>※ 1cm = 10px（10px/cm 基準）</div>
+            {(node.nodeW||node.nodeH)&&<button className="btn btn-ghost btn-sm" style={{marginTop:4,width:'100%'}}
+              onClick={()=>onResizeNode(node.id,null,null)}>↩ デフォルトサイズに戻す</button>}
+          </>);})()}
+          <button className="btn btn-danger btn-sm" style={{marginTop:8}} onClick={onDelSelected}>削除</button>
+        </div>
+      </div>
+    );
+  }
+
+  if(selected?.type==='conn'){
+    const conn=connections.find(c=>c.id===selected.id); if(!conn) return<div className={cls}/>;
+    const fn=nodes.find(n=>n.id===conn.fromNode), tn=nodes.find(n=>n.id===conn.toNode);
+    // 派生値を実経路から算出（PropPanel 内で再度 buildPath を呼んで segs を得る）
+    const _pts=connPts(conn,nodes);
+    const _r=_pts?buildPath(_pts,conn.style||'ortho',nodes,conn.fromNode,conn.toNode,conn.fromPort,conn.toPort,[]):{segs:[]};
+    let derived=getDerivedWire(conn,nodes,connections,systemV,_r.segs);
+    const routeWarning=_r.warning===true;
+    // ショート回路・極性違反の検出（リアルタイム警告）
+    const _fpc=fn?getNodePorts(fn).find(p=>p.id===conn.fromPort)?.color:null;
+    const _tpc=tn?getNodePorts(tn).find(p=>p.id===conn.toPort)?.color:null;
+    const isShort=(_fpc==='#ef4444'&&_tpc==='#374151')||(_fpc==='#374151'&&_tpc==='#ef4444');
+    const isMixed=(_fpc==='#6366f1'&&(_tpc==='#ef4444'||_tpc==='#374151'))||(_tpc==='#6366f1'&&(_fpc==='#ef4444'||_fpc==='#374151'));
+    // ±ペア同期（partner と両方 auto なら大きい方に揃える）
+    const _partner=findPairPartner(conn,connections,nodes);
+    let pairedWith=null;
+    if(_partner){
+      const pPts=connPts(_partner,nodes);
+      const pR=pPts?buildPath(pPts,_partner.style||'ortho',nodes,_partner.fromNode,_partner.toNode,_partner.fromPort,_partner.toPort,[]):{segs:[]};
+      const pDerived=getDerivedWire(_partner,nodes,connections,systemV,pR.segs);
+      if(derived.sizeIsAuto&&pDerived.sizeIsAuto){
+        const myMm2=WIRE_SIZES.find(s=>s.label===derived.wireSize)?.mm2||0;
+        const prMm2=WIRE_SIZES.find(s=>s.label===pDerived.wireSize)?.mm2||0;
+        if(prMm2>myMm2){
+          derived={...derived,wireSize:pDerived.wireSize,sizeRes:pDerived.sizeRes,paired:true};
+        } else {
+          derived={...derived,paired:true};
+        }
+      }
+      pairedWith=_partner;
+    }
+    const res=derived.sizeRes;
+    const fuse=derived.amps?suggestFuse(derived.amps):null;
+    const curColor=conn.wireColor||'#94a3b8';
+    const autoThick=wireThick(derived.wireSize);
+    const curThick=conn.customThick!=null?conn.customThick:autoThick;
+    const wpCount=(conn.waypoints||[]).length;
+    const upd=patch=>onUpdateConn(conn.id,patch);
+
+    return(
+      <div className={cls}>
+        <div className="psec">
+          <div className="ptitle">🔗 配線プロパティ</div>
+          <div style={{fontSize:11,color:'#94a3b8',marginBottom:10}}>{fn?.props.name} → {tn?.props.name}</div>
+          {isShort&&<div style={{background:'#fef2f2',border:'2px solid #dc2626',color:'#991b1b',padding:'8px 10px',borderRadius:8,fontSize:12,marginBottom:10,lineHeight:1.5,fontWeight:600}}>
+            ⚡ <b>ショート回路の危険！</b><br/>
+            <span style={{fontWeight:400,fontSize:11}}>+極(赤)と−極(黒)が直接接続されています。バッテリーを瞬時に破損する恐れがあります。配線を見直してください。</span>
+          </div>}
+          {isMixed&&<div style={{background:'#fef2f2',border:'2px solid #dc2626',color:'#991b1b',padding:'8px 10px',borderRadius:8,fontSize:12,marginBottom:10,lineHeight:1.5,fontWeight:600}}>
+            ⚡ <b>AC/DC 混在配線！</b><br/>
+            <span style={{fontWeight:400,fontSize:11}}>AC ポートと DC ポートを直接接続しています。機器を破損する恐れがあります。</span>
+          </div>}
+          {routeWarning&&<div style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#991b1b',padding:'6px 8px',borderRadius:6,fontSize:11,marginBottom:10,lineHeight:1.5}}>
+            ⚠️ <b>自動経路が見つかりませんでした</b><br/>
+            部品を貫通する可能性があります。配線上を <b>⊕クリックで中継点を追加</b> し、ドラッグして経路を調整してください。
+          </div>}
+          {derived.paired&&<div style={{background:'#ecfeff',border:'1px solid #a5f3fc',color:'#0e7490',padding:'6px 8px',borderRadius:6,fontSize:11,marginBottom:10,lineHeight:1.5}}>
+            🔗 <b>±ペアで同期中</b><br/>
+            同じ機器間の反対極性配線とサイズが揃えられています（大きい方に合わせる）。どちらかを上書きすると同期は解除されます。
+          </div>}
+
+          {/* ── Wire Color ── */}
+          <div className="prow">
+            <div className="plbl">配線の色</div>
+            <div className="color-row">
+              {WIRE_COLORS.map(wc=>(
+                <div key={wc.color} className={`cswatch${curColor===wc.color?' active':''}`}
+                  style={{background:wc.color,boxShadow:wc.color==='#f8fafc'?'inset 0 0 0 1px #cbd5e1':''}}
+                  title={wc.name}
+                  onClick={()=>upd({wireColor:wc.color})}/>
+              ))}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <label style={{fontSize:10,color:'#94a3b8'}}>カスタム:</label>
+              <input type="color" value={curColor} onChange={e=>upd({wireColor:e.target.value})}
+                style={{width:36,height:24,border:'1px solid #e2e8f0',borderRadius:4,cursor:'pointer',padding:1}}/>
+              <span style={{fontSize:11,color:'#64748b',fontFamily:'monospace'}}>{curColor}</span>
+            </div>
+          </div>
+
+          {/* ── Wire Thickness ── */}
+          <div className="prow">
+            <div className="plbl" style={{display:'flex',justifyContent:'space-between'}}>
+              <span>画面表示の太さ</span>
+              <span style={{color:'#94a3b8',fontSize:10}}>{curThick.toFixed(1)}px{conn.customThick==null?' (自動)':' (カスタム)'}</span>
+            </div>
+            <div className="thick-row">
+              <input type="range" className="thick-slider" min={1} max={20} step={0.5}
+                value={curThick}
+                onChange={e=>upd({customThick:+e.target.value})}/>
+              <span className="thick-val">{curThick.toFixed(1)}</span>
+            </div>
+            {conn.customThick!=null&&(
+              <button className="btn btn-ghost btn-sm" style={{marginTop:4}} onClick={()=>upd({customThick:null})}>
+                ↩ 電線サイズから自動計算
+              </button>
+            )}
+          </div>
+
+          <hr style={{border:'none',borderTop:'1px solid #f1f5f9',margin:'8px 0'}}/>
+
+          {/* ── Electrical (派生値表示・上書き可能) ── */}
+          <div className="prow">
+            <div className="plbl" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>最大電流 (A)</span>
+              <span style={{fontSize:10,color:derived.ampsIsAuto?'#0891b2':'#c2410c',fontWeight:600}}>
+                {derived.ampsIsAuto?`自動: ${derived.ampsAuto}A`:`上書き中（自動値: ${derived.ampsAuto}A）`}
+              </span>
+            </div>
+            <div style={{display:'flex',gap:4}}>
+              <input className="pinput" type="number" value={conn.amps||''} onChange={e=>upd({amps:e.target.value})}
+                placeholder={`自動: ${derived.ampsAuto||'—'}`} style={{flex:1}}/>
+              {!derived.ampsIsAuto&&<button className="btn btn-ghost btn-sm" style={{padding:'2px 8px',fontSize:10}}
+                title="上書きを解除して自動計算に戻します" onClick={()=>upd({amps:''})}>↩ 自動</button>}
+            </div>
+          </div>
+          <div className="prow">
+            <div className="plbl" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>ケーブル長 (m, 片道)</span>
+              <span style={{fontSize:10,color:derived.lenIsAuto?'#0891b2':'#c2410c',fontWeight:600}}>
+                {derived.lenIsAuto?`自動: ${derived.lenAuto}m（実経路）`:`上書き中（実経路: ${derived.lenAuto}m）`}
+              </span>
+            </div>
+            <div style={{display:'flex',gap:4}}>
+              <input className="pinput" type="number" value={conn.lenM||''} onChange={e=>upd({lenM:e.target.value})}
+                placeholder={`自動: ${derived.lenAuto}`} style={{flex:1}}/>
+              {!derived.lenIsAuto&&<button className="btn btn-ghost btn-sm" style={{padding:'2px 8px',fontSize:10}}
+                title="上書きを解除して実経路長に戻します" onClick={()=>upd({lenM:''})}>↩ 自動</button>}
+            </div>
+          </div>
+          {res&&<>
+            <div className="gc">
+              <div style={{fontSize:10,color:'#0891b2',fontWeight:700,marginBottom:3}}>
+                推奨電線サイズ{derived.sizeIsAuto?'':' (上書き中)'}
+              </div>
+              <div className="gc-big">{derived.wireSize}</div>
+              <div className="gc-row"><span>AWG {res.awg}</span><span>最大 {res.maxA}A</span></div>
+            </div>
+            {res.maxA<derived.amps&&<div className="gc-warn">⚠ 最大サイズで選定しています</div>}
+            <div className="prow" style={{marginTop:8}}>
+              <div className="plbl" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span>電線サイズを上書き<span style={{fontSize:9,color:'#94a3b8',marginLeft:4}}>KIV空中単線基準</span></span>
+                {!derived.sizeIsAuto&&<button className="btn btn-ghost btn-sm" style={{padding:'2px 8px',fontSize:10}}
+                  title="上書きを解除して自動推奨値に戻します" onClick={()=>upd({wireSize:''})}>↩ 自動</button>}
+              </div>
+              <select className="psel" value={conn.wireSize||''} onChange={e=>{
+                const ws=e.target.value;
+                upd({wireSize:ws});
+              }}>
+                <option value="">― 自動 ―</option>
+                {WIRE_SIZES.map(w=><option key={w.mm2} value={w.label} style={{fontWeight:w.mm2===res.mm2?700:400}}>{w.label} (AWG{w.awg}, 最大{w.maxA}A){w.mm2===res.mm2?' ✓推奨':''}</option>)}
+              </select>
+            </div>
+          </>}
+          {fuse&&<div className="fc"><div style={{fontSize:10,color:'#c2410c',fontWeight:700,marginBottom:2}}>推奨ヒューズ</div><div className="fc-big">{fuse}A</div></div>}
+
+          <div className="tip-box" style={{marginTop:8}}>中継点: {wpCount}個　◆ドラッグ=移動　⊕クリック=追加　◆ダブルクリック=削除</div>
+          <div style={{display:'flex',gap:6,marginTop:8}}>
+            {wpCount>0&&<button className="btn btn-warn btn-sm" style={{flex:1}} title="中継点をすべて削除し、自動迂回ルートに戻します"
+              onClick={()=>upd({waypoints:[]})}>🔄 経路を再設定</button>}
+            <button className="btn btn-danger btn-sm" style={{flex:wpCount>0?1:'1 1 100%'}} onClick={onDelSelected}>🗑 この配線を削除</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div className={cls}>
+      <div className="psec">
+        <div className="ptitle">操作ガイド</div>
+        <div style={{fontSize:11.5,color:'#64748b',lineHeight:1.9}}>
+          <div>• 部品をパレットからドラッグ&amp;ドロップ</div>
+          <div>• ポート(●)クリック → 配線開始</div>
+          <div>• 別ポートクリック → 接続完了</div>
+          <div>• 部品本体をクリック or ESC → 描画キャンセル</div>
+          <div>• 空白をクリック → 中継点を追加</div>
+          <div>• 配線をタップ → 右パネルから色・太さ・削除</div>
+          <div>• 配線を選択 → ⊕で中継点追加</div>
+          <div>• 部品を選択 → 右下◤でリサイズ</div>
+          <div>• 📱 スマホ: 配線を長押し → 再設定/削除メニュー</div>
+          <div>• 🔍チェック → 電気的整合性を確認</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Check Modal
+// ═══════════════════════════════════════════════════════════════
+function CheckModal({nodes,connections,onClose}){
+  const results=useMemo(()=>runChecks(nodes,connections),[nodes,connections]);
+  const errCnt=results.filter(r=>r.level==='error').length;
+  const warnCnt=results.filter(r=>r.level==='warn').length;
+
+  const summary=errCnt>0
+    ?{cls:'cs-err',icon:'❌',text:`${errCnt}件のエラー${warnCnt>0?`、${warnCnt}件の警告`:''}があります`}
+    :warnCnt>0
+    ?{cls:'cs-warn',icon:'⚠',text:`${warnCnt}件の警告があります`}
+    :{cls:'cs-ok',icon:'✅',text:'問題は見つかりませんでした'};
+
+  const LEVEL={ok:{cls:'chk-ok',icon:'✅'},warn:{cls:'chk-warn',icon:'⚠️'},error:{cls:'chk-err',icon:'❌'},info:{cls:'chk-info',icon:'ℹ️'}};
+
+  // Group by category
+  const cats=[...new Set(results.map(r=>r.cat))].filter(Boolean);
+
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:600}}>
+        <div className="mhd">
+          <div className="mttl">🔍 電気チェック結果</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="mbody">
+          <div className={`check-summary ${summary.cls}`}>
+            <span style={{fontSize:20}}>{summary.icon}</span>
+            <span>{summary.text}</span>
+          </div>
+          {cats.map(cat=>(
+            <div key={cat}>
+              <div className="chk-cat">{cat}</div>
+              {results.filter(r=>r.cat===cat).map((r,i)=>{
+                const lv=LEVEL[r.level]||LEVEL.info;
+                return(
+                  <div key={i} className={`chk-item ${lv.cls}`}>
+                    <span className="chk-icon">{lv.icon}</span>
+                    <div>
+                      <div className="chk-title">{r.title}</div>
+                      {r.details?.length>0&&(
+                        <div className="chk-details">
+                          {r.details.map((d,j)=><div key={j} className="chk-detail-row">• {d}</div>)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {results.filter(r=>!r.cat).map((r,i)=>{
+            const lv=LEVEL[r.level]||LEVEL.info;
+            return(
+              <div key={i} className={`chk-item ${lv.cls}`}>
+                <span className="chk-icon">{lv.icon}</span>
+                <div>
+                  <div className="chk-title">{r.title}</div>
+                  {r.details?.length>0&&<div className="chk-details">{r.details.map((d,j)=><div key={j} className="chk-detail-row">• {d}</div>)}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mfoot">
+          <span style={{fontSize:11,color:'#94a3b8'}}>部品数: {nodes.length}　配線数: {connections.length}</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Simulation Modal
+// ═══════════════════════════════════════════════════════════════
+function SimModal({nodes,onClose}){
+  // 入力パラメータ
+  const [sunHours,setSunHours]=useState(()=>+(localStorage.getItem('sim_sun')||4));
+  const [dod,setDod]=useState(()=>+(localStorage.getItem('sim_dod')||80));
+  const [loadHours,setLoadHours]=useState(()=>{try{return JSON.parse(localStorage.getItem('sim_loadHrs')||'{}');}catch{return{};}});
+  useEffect(()=>{localStorage.setItem('sim_sun',sunHours);},[sunHours]);
+  useEffect(()=>{localStorage.setItem('sim_dod',dod);},[dod]);
+  useEffect(()=>{localStorage.setItem('sim_loadHrs',JSON.stringify(loadHours));},[loadHours]);
+  // 集計
+  const sim=useMemo(()=>{
+    const sols=nodes.filter(n=>n.type==='solar_panel');
+    const bats=nodes.filter(n=>n.type==='battery');
+    const dcLoads=nodes.filter(n=>n.type==='dc_load');
+    const acLoads=nodes.filter(n=>n.type==='ac_load');
+    const solarW=sols.reduce((s,n)=>s+(+n.props.watts||0),0);
+    // 太陽光発電効率: 75% (MPPT損失、温度、汚れなど)
+    const solarDayWh=solarW*sunHours*0.75;
+    const battTotalWh=bats.reduce((s,n)=>s+(+n.props.voltage||12)*(+n.props.ah||0),0);
+    const battUsableWh=battTotalWh*(dod/100);
+    const loads=[...dcLoads,...acLoads].map(n=>{
+      const w=+n.props.watts||0;
+      const h=loadHours[n.id]!=null?+loadHours[n.id]:2;
+      // AC負荷はインバーター効率0.85
+      const eff=n.type==='ac_load'?0.85:1;
+      const dayWh=w*h/eff;
+      return{node:n,w,h,dayWh,isAC:n.type==='ac_load'};
+    });
+    const loadDayWh=loads.reduce((s,l)=>s+l.dayWh,0);
+    const peakW=loads.reduce((s,l)=>s+l.w/(l.isAC?0.85:1),0);
+    const autonomyDays=loadDayWh>0?battUsableWh/loadDayWh:Infinity;
+    const selfSuf=loadDayWh>0?(solarDayWh/loadDayWh)*100:Infinity;
+    const rechargeHours=solarDayWh>0?battUsableWh/(solarW*0.75):Infinity;
+    const dailyBalance=solarDayWh-loadDayWh;
+    return{sols,bats,dcLoads,acLoads,solarW,solarDayWh,battTotalWh,battUsableWh,loads,loadDayWh,peakW,autonomyDays,selfSuf,rechargeHours,dailyBalance};
+  },[nodes,sunHours,dod,loadHours]);
+  // ステータス判定
+  const autonomyCls=sim.autonomyDays>=2?'sim-stat-good':sim.autonomyDays>=1?'sim-stat-warn':'sim-stat-bad';
+  const selfSufCls=sim.selfSuf>=100?'sim-stat-good':sim.selfSuf>=70?'sim-stat-warn':'sim-stat-bad';
+  const balanceCls=sim.dailyBalance>=0?'sim-stat-good':sim.dailyBalance>=-sim.loadDayWh*0.3?'sim-stat-warn':'sim-stat-bad';
+  const fmt=n=>!isFinite(n)?'∞':n>=100?Math.round(n).toLocaleString():n.toFixed(1);
+  // 自立日数の表示: 1日未満なら時間、1日以上なら "X日Y時間"
+  const fmtAutonomy=d=>{
+    if(!isFinite(d)) return{val:'∞',unit:''};
+    if(d<=0) return{val:'0',unit:'時間'};
+    if(d<1){
+      const hrs=d*24;
+      return{val:hrs>=10?Math.round(hrs).toString():hrs.toFixed(1),unit:'時間'};
+    }
+    const days=Math.floor(d);
+    const remHrs=Math.round((d-days)*24);
+    if(remHrs===0) return{val:days.toString(),unit:'日'};
+    if(remHrs>=24) return{val:(days+1).toString(),unit:'日'};
+    return{val:`${days}日${remHrs}`,unit:'時間'};
+  };
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal">
+        <div className="mhd"><div className="mttl">🔬 設計シミュレーション</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="mbody">
+          {nodes.length===0?<div style={{textAlign:'center',color:'#94a3b8',padding:48}}>キャンバスに部品を配置してください</div>:<>
+            {/* 主要指標 */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:14}}>
+              <div className={`sim-stat ${autonomyCls}`} title="バッテリーだけで何日もつかを表す指標（ソーラー発電は含めない）。連続曇天など最悪ケースの備え。推奨：2〜3日以上。&#10;計算式：実用バッテリー容量 ÷ 1日の消費量&#10;緑=2日以上 / 黄=1〜2日 / 赤=1日未満">
+                {(()=>{const a=fmtAutonomy(sim.autonomyDays);return(
+                  <div className="sim-stat-val" style={{fontSize:a.val.length>4?18:24}}>{a.val}<span style={{fontSize:12,marginLeft:3}}>{a.unit}</span></div>
+                );})()}
+                <div className="sim-stat-lbl">📉 自立日数 <span style={{opacity:.6}}>ⓘ</span></div>
+              </div>
+              <div className={`sim-stat ${selfSufCls}`} title="日々の消費電力をソーラー発電だけでまかなえる割合。&#10;計算式：1日の発電量 ÷ 1日の消費量 × 100&#10;100%以上で「日々の電力を太陽光だけで自給できる」状態。&#10;緑=100%以上 / 黄=70〜100% / 赤=70%未満">
+                <div className="sim-stat-val">{fmt(sim.selfSuf)}<span style={{fontSize:12,marginLeft:3}}>%</span></div>
+                <div className="sim-stat-lbl">☀ 自給率 <span style={{opacity:.6}}>ⓘ</span></div>
+              </div>
+              <div className={`sim-stat ${balanceCls}`} title="1日あたりの余剰/不足電力（Wh）。&#10;計算式：1日の発電量 − 1日の消費量&#10;プラスなら余裕、マイナスなら毎日バッテリーを切り崩している状態。&#10;緑=プラス / 黄=やや不足 / 赤=大幅不足">
+                <div className="sim-stat-val">{sim.dailyBalance>=0?'+':''}{fmt(sim.dailyBalance)}<span style={{fontSize:12,marginLeft:3}}>Wh</span></div>
+                <div className="sim-stat-lbl">⚖ 日収支 <span style={{opacity:.6}}>ⓘ</span></div>
+              </div>
+              <div className="sim-stat sim-stat-info" title="空のバッテリーが満充電になるまでの時間（ソーラー発電のみで計算）。&#10;計算式：実用バッテリー容量 ÷ ソーラー発電出力（システム効率込み）&#10;実際は曇天や日射条件で大きく変動します。">
+                <div className="sim-stat-val">{fmt(sim.rechargeHours)}<span style={{fontSize:12,marginLeft:3}}>h</span></div>
+                <div className="sim-stat-lbl">🔋 満充電時間 <span style={{opacity:.6}}>ⓘ</span></div>
+              </div>
+            </div>
+            {/* 主要パラメータ */}
+            <div className="sim-grid">
+              <div className="sim-card">
+                <div className="sim-card-title">☀ ソーラー発電</div>
+                <div className="sim-row"><span className="lbl">パネル合計</span><span className="val">{sim.solarW} W ({sim.sols.length}枚)</span></div>
+                <div className="sim-row"><span className="lbl">日照時間/日</span>
+                  <span className="val" style={{display:'flex',alignItems:'center',gap:6}}>
+                    <input type="range" min={2} max={8} step={0.5} value={sunHours} onChange={e=>setSunHours(+e.target.value)} className="sim-hours-range" style={{width:90}}/>
+                    {sunHours}h
+                  </span>
+                </div>
+                <div className="sim-row"><span className="lbl">推定発電量/日</span><span className="val" style={{color:'#dd8c1a'}}>{Math.round(sim.solarDayWh).toLocaleString()} Wh</span></div>
+                <div style={{fontSize:10,color:'#94a3b8',marginTop:6}}>※ システム効率75%（MPPT・温度・汚れ含む）</div>
+              </div>
+              <div className="sim-card">
+                <div className="sim-card-title">🔋 バッテリー</div>
+                <div className="sim-row"><span className="lbl">合計容量</span><span className="val">{sim.battTotalWh} Wh ({sim.bats.length}個)</span></div>
+                <div className="sim-row"><span className="lbl">放電深度(DoD)</span>
+                  <span className="val" style={{display:'flex',alignItems:'center',gap:6}}>
+                    <input type="range" min={30} max={100} step={5} value={dod} onChange={e=>setDod(+e.target.value)} className="sim-hours-range" style={{width:90}}/>
+                    {dod}%
+                  </span>
+                </div>
+                <div className="sim-row"><span className="lbl">実用容量</span><span className="val" style={{color:'#16a34a'}}>{Math.round(sim.battUsableWh).toLocaleString()} Wh</span></div>
+                <div style={{fontSize:10,color:'#94a3b8',marginTop:6}}>※ LiFePO4は80-90%、AGMは50%が目安</div>
+              </div>
+            </div>
+            {/* 負荷一覧 */}
+            <div className="sim-card">
+              <div className="sim-card-title">🔌 消費機器（1日の使用時間を調整）</div>
+              {sim.loads.length===0?<div style={{textAlign:'center',color:'#94a3b8',padding:16,fontSize:12}}>負荷機器を配置してください</div>:
+              <div>
+                <div className="sim-load-row" style={{fontWeight:700,fontSize:11,color:'#64748b',background:'#f1f5f9'}}>
+                  <span>機器名</span><span style={{textAlign:'right'}}>出力</span><span style={{textAlign:'right'}}>時間/日</span><span style={{textAlign:'right'}}>Wh/日</span>
+                </div>
+                {sim.loads.map(l=>(
+                  <div key={l.node.id} className="sim-load-row">
+                    <span>{l.node.props.name||COMP[l.node.type].label}{l.isAC&&<span style={{fontSize:9,color:'#7c3aed',marginLeft:4}}>AC</span>}</span>
+                    <span style={{textAlign:'right'}}>{l.w}W</span>
+                    <input type="number" min={0} max={24} step={0.5} value={l.h}
+                      onChange={e=>setLoadHours(h=>({...h,[l.node.id]:+e.target.value}))}/>
+                    <span style={{textAlign:'right',fontWeight:700,color:'#dc2626'}}>{Math.round(l.dayWh)}</span>
+                  </div>
+                ))}
+                <div className="sim-load-row" style={{fontWeight:700,background:'#fef2f2'}}>
+                  <span>合計</span>
+                  <span style={{textAlign:'right'}}>{Math.round(sim.peakW)}W (ピーク)</span>
+                  <span/>
+                  <span style={{textAlign:'right',color:'#dc2626'}}>{Math.round(sim.loadDayWh)}</span>
+                </div>
+              </div>}
+            </div>
+            {/* 推奨アドバイス */}
+            <div className="sim-card" style={{background:'#fffbeb',borderColor:'#fde68a'}}>
+              <div className="sim-card-title" style={{color:'#92400e'}}>💡 アドバイス</div>
+              <div style={{fontSize:12,lineHeight:1.7}}>
+                {sim.bats.length===0&&<div>• バッテリーを配置してください</div>}
+                {sim.sols.length===0&&<div>• ソーラーパネルを配置すると充電シミュレーションが見られます</div>}
+                {sim.autonomyDays<1&&sim.loadDayWh>0&&<div style={{color:'#dc2626'}}>• ⚠ 自立日数が1日未満。バッテリーを増やすか、消費を削減してください</div>}
+                {sim.autonomyDays>=1&&sim.autonomyDays<2&&<div style={{color:'#d97706'}}>• 自立日数が短めです。曇天時に備えてバッテリー増設をご検討ください</div>}
+                {sim.selfSuf<100&&sim.solarW>0&&<div style={{color:'#d97706'}}>• 太陽光発電のみで賄えていません。あと約 {Math.ceil((sim.loadDayWh-sim.solarDayWh)/(sunHours*0.75))}W のパネル増設で自給達成</div>}
+                {sim.selfSuf>=100&&sim.dailyBalance>sim.battTotalWh&&<div>• 発電量が十分。余剰電力をうまく使う仕組み（追加機器など）も検討できます</div>}
+                {sim.autonomyDays>=3&&sim.selfSuf>=100&&<div style={{color:'#16a34a'}}>• ✅ バランスの取れた良い設計です</div>}
+                {sim.peakW>2000&&<div>• 連続最大 {Math.round(sim.peakW)}W のため、インバーター容量は {Math.ceil(sim.peakW*1.3/100)*100}W 以上を推奨</div>}
+              </div>
+            </div>
+            {/* 用語解説 */}
+            <details className="sim-card" style={{background:'#f0f9ff',borderColor:'#bae6fd',padding:'10px 12px'}}>
+              <summary style={{cursor:'pointer',fontSize:12,fontWeight:700,color:'#0369a1',userSelect:'none'}}>📖 各指標の意味と計算式（クリックで展開）</summary>
+              <div style={{marginTop:10,fontSize:11.5,lineHeight:1.65,color:'#0c4a6e'}}>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>📉 自立日数（Days of Autonomy）</div>
+                  <div>バッテリーだけで何日もつかを表す指標。<b>ソーラー発電は含めません</b>。連続曇天・台風・夜間など「太陽光が使えない最悪ケース」での備えを評価。</div>
+                  <div style={{marginTop:3,fontFamily:'monospace',background:'rgba(3,105,161,.08)',padding:'2px 6px',borderRadius:3}}>= 実用バッテリー容量(Wh) ÷ 1日の消費量(Wh)</div>
+                  <div style={{marginTop:3,fontSize:10.5,color:'#64748b'}}>業界推奨：2〜3日以上 / 緊急用なら最低1日。値が短いとちょっとした曇天で停電します。</div>
+                </div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>☀ 自給率（Self-Sufficiency Ratio）</div>
+                  <div>日々の消費電力を太陽光発電だけで賄える割合。100%超で「平均的な日には自給できる」状態。</div>
+                  <div style={{marginTop:3,fontFamily:'monospace',background:'rgba(3,105,161,.08)',padding:'2px 6px',borderRadius:3}}>= 1日の発電量(Wh) ÷ 1日の消費量(Wh) × 100</div>
+                  <div style={{marginTop:3,fontSize:10.5,color:'#64748b'}}>100%以上が理想。70%未満だと頻繁に外部充電（陸電/発電機）が必要に。</div>
+                </div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>⚖ 日収支（Daily Balance）</div>
+                  <div>1日あたりの発電量と消費量の差。プラスなら余裕、マイナスならバッテリーを徐々に切り崩している状態。</div>
+                  <div style={{marginTop:3,fontFamily:'monospace',background:'rgba(3,105,161,.08)',padding:'2px 6px',borderRadius:3}}>= 1日の発電量(Wh) − 1日の消費量(Wh)</div>
+                  <div style={{marginTop:3,fontSize:10.5,color:'#64748b'}}>マイナスが続くと数日でバッテリーが枯渇。プラスなら余剰電力で機器追加も検討可能。</div>
+                </div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,marginBottom:3}}>🔋 満充電時間（Recharge Time）</div>
+                  <div>空のバッテリーを満充電するのに必要な時間（ソーラー発電のみで計算）。</div>
+                  <div style={{marginTop:3,fontFamily:'monospace',background:'rgba(3,105,161,.08)',padding:'2px 6px',borderRadius:3}}>= 実用バッテリー容量(Wh) ÷ (パネル合計W × システム効率0.75)</div>
+                  <div style={{marginTop:3,fontSize:10.5,color:'#64748b'}}>実際は日射条件・温度で変動。冬季や曇天時は数倍かかることも。</div>
+                </div>
+                <div style={{padding:'8px 10px',background:'#fef3c7',borderRadius:6,border:'1px solid #fde68a'}}>
+                  <div style={{fontWeight:700,color:'#92400e',marginBottom:3}}>💡 健全な設計の目安</div>
+                  <div style={{fontSize:11,color:'#78350f'}}>
+                    • 自立日数 ≥ 2〜3日（曇天への備え）<br/>
+                    • 自給率 ≥ 100%（普段は自給で運用）<br/>
+                    • 日収支 ≥ 0Wh（持続可能）<br/>
+                    <b>3つすべてを満たすと信頼性の高いオフグリッドシステムです。</b>
+                  </div>
+                </div>
+                <div style={{marginTop:8,fontSize:10.5,color:'#64748b',lineHeight:1.5}}>
+                  <b>計算前提：</b>ソーラーシステム効率75%（MPPT・温度・汚れ・配線損失込み）／インバーター効率85%／日照時間とDoDは上のスライダーで調整可能。
+                </div>
+              </div>
+            </details>
+          </>}
+        </div>
+        <div className="mfoot">
+          <span style={{fontSize:11,color:'#94a3b8'}}>※ あくまで概算。実環境では天候・温度・経年劣化等で変動します</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BOM Modal
+// ═══════════════════════════════════════════════════════════════
+function BOMModal({nodes,connections,affiliateTag,onClose}){
+  // 容量・仕様別にグループ化（同じ部品でも 100Ah と 200Ah は別行）
+  const tally=useMemo(()=>{const m={};nodes.forEach(n=>{const d=COMP[n.type];const q=amazonQuery(n);const k=`${n.type}|${q}`;if(!m[k])m[k]={type:n.type,d,query:q,count:0,nodes:[]};m[k].count++;m[k].nodes.push(n);});return Object.values(m);},[nodes]);
+  const wireTally=useMemo(()=>{const m={};connections.forEach(c=>{const d=getDerivedWire(c,nodes,connections,12,null);if(d.wireSize)m[d.wireSize]=(m[d.wireSize]||0)+1;});return Object.entries(m).map(([s,n])=>({size:s,cnt:n}));},[connections,nodes]);
+  const total=tally.reduce((s,t)=>s+t.d.priceEst*t.count,0);
+  // 強化版CTAボタン: メインリンク + サブリンク（高評価/価格安い順）
+  const renderAffCta=(query,price,count,key)=>{
+    if(!query) return'—';
+    const subtotal=(price||0)*(count||1);
+    return(
+      <div>
+        <a className="aff-primary" href={affLink(query,affiliateTag)} target="_blank" rel="noopener">
+          <span className="pri-top">🛒 Amazonで探す</span>
+          {subtotal>0&&<span className="pri-sub">合計目安 ¥{subtotal.toLocaleString()}〜<span className="prime-badge">Prime</span></span>}
+        </a>
+        <div className="aff-alts">
+          <a className="aff-alt" href={affLink(query,affiliateTag,'review-rank')} target="_blank" rel="noopener" title="レビュー評価の高い順">★高評価</a>
+          <a className="aff-alt" href={affLink(query,affiliateTag,'price-asc-rank')} target="_blank" rel="noopener" title="価格の安い順">最安値</a>
+          <a className="aff-alt" href={affLinkPrime(query,affiliateTag)} target="_blank" rel="noopener" title="Prime対応のみ">Prime限定</a>
+        </div>
+      </div>
+    );
+  };
+  // 全部まとめて新規タブで開く（機器・配線材・工具すべて）
+  const openAllAmazon=()=>{
+    const links=[];
+    tally.filter(t=>t.d.affKey&&t.query).forEach(t=>links.push(t.query));
+    wireTally.forEach(w=>{const mm2=w.size.replace('mm²','').trim();const a=WIRE_AFF.find(x=>x.mm2===mm2);if(a)links.push(a.q);});
+    TOOL_AFF.forEach(t=>links.push(t.q));
+    links.forEach((q,i)=>{
+      setTimeout(()=>window.open(affLink(q,affiliateTag),'_blank','noopener'),i*100);
+    });
+  };
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal">
+        <div className="mhd"><div className="mttl">📋 部品一覧 &amp; アフィリエイトリンク</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="mbody">
+          {tally.length===0?<div style={{textAlign:'center',color:'#94a3b8',padding:48}}>キャンバスに部品を配置してください</div>:<>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{fontWeight:700,fontSize:13}}>🔧 機器・部品</div>
+              {total>0&&<div style={{fontSize:11,color:'#64748b'}}>合計概算 <b style={{color:'#dd8c1a',fontSize:14}}>¥{total.toLocaleString()}〜</b></div>}
+            </div>
+            <table className="bom-tbl">
+              <thead><tr><th>部品名</th><th>仕様</th><th style={{textAlign:'center'}}>必要数</th><th>小計</th><th style={{minWidth:160}}>Amazon で購入</th></tr></thead>
+              <tbody>{tally.map((t,i)=>(
+                <tr key={i}>
+                  <td><div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <ProductThumb type={t.type} node={t.nodes[0]} size={48}/>
+                    <span style={{fontWeight:600}}>{t.d.label}</span>
+                  </div></td>
+                  <td><span style={{fontSize:11,color:'#64748b'}}>{specLine(t.nodes[0])}</span></td>
+                  <td style={{textAlign:'center'}}><span style={{fontWeight:700,color:'#dd8c1a'}}>× {t.count}</span></td>
+                  <td>{t.d.priceEst>0?<span className="subtotal-cell"><span className="qty-x">¥{t.d.priceEst.toLocaleString()}×{t.count}=</span>¥{(t.d.priceEst*t.count).toLocaleString()}</span>:<span style={{color:'#cbd5e1'}}>—</span>}</td>
+                  <td>{t.d.affKey?renderAffCta(t.query,t.d.priceEst,t.count,'p'+i):'—'}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {wireTally.length>0&&<>
+              <div style={{fontWeight:700,fontSize:13,margin:'18px 0 10px'}}>🔌 配線材</div>
+              <table className="bom-tbl bom-wire">
+                <thead><tr><th>電線サイズ</th><th>使用箇所</th><th style={{minWidth:160}}>Amazon で購入</th></tr></thead>
+                <tbody>{wireTally.map((w,i)=>{const mm2=w.size.replace('mm²','').trim();const a=WIRE_AFF.find(x=>x.mm2===mm2)||{q:`電線 ${w.size}`};return(
+                  <tr key={i}>
+                    <td><div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <ThumbBox icon={WIRE_THUMB.icon} color={WIRE_THUMB.color} bg={WIRE_THUMB.bg} label={w.size} size={42}/>
+                      <span style={{fontWeight:600}}>{w.size}</span>
+                    </div></td>
+                    <td>{w.cnt}箇所</td>
+                    <td>{renderAffCta(a.q,0,1,'w'+i)}</td>
+                  </tr>
+                );})}</tbody>
+              </table>
+            </>}
+            <div style={{fontWeight:700,fontSize:13,margin:'18px 0 10px'}}>🛠 工具・消耗品</div>
+            <table className="bom-tbl bom-wire">
+              <thead><tr><th>品名</th><th></th><th style={{minWidth:160}}>Amazon で購入</th></tr></thead>
+              <tbody>{TOOL_AFF.map((t,i)=>(
+                <tr key={i}>
+                  <td><div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <ThumbBox icon={t.icon||'🛠'} color={t.color||'#475569'} bg={t.bg||'#e2e8f0'} label={t.n} size={42}/>
+                    <span style={{fontWeight:600}}>{t.n}</span>
+                  </div></td>
+                  <td/>
+                  <td>{renderAffCta(t.q,0,1,'t'+i)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            <div style={{marginTop:18,padding:14,background:'linear-gradient(180deg,#fef3c7,#fde68a)',borderRadius:10,border:'1px solid #fbbf24',textAlign:'center'}}>
+              <div style={{fontSize:12,color:'#78350f',marginBottom:8,fontWeight:600}}>🛒 設計に必要な部品をまとめて確認できます</div>
+              <button className="aff-bulk" onClick={openAllAmazon} title="機器・配線材・工具すべてを Amazon 検索で新しいタブに開きます">
+                🛒 全部まとめて Amazon で確認する（{tally.filter(t=>t.d.affKey).length+wireTally.length+TOOL_AFF.length}件）
+              </button>
+              <div style={{fontSize:10,color:'#92400e',marginTop:6}}>※ ブラウザのポップアップ許可が必要な場合があります</div>
+            </div>
+          </>}
+        </div>
+        <div className="mfoot">
+          <span style={{fontSize:12,color:'#94a3b8'}}>{total>0?`部品合計参考: ¥${total.toLocaleString()}〜`:''}</span>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>navigator.clipboard?.writeText(tally.map(t=>`${t.d.label}（${specLine(t.nodes[0])}）×${t.count}`).join('\n'))}>📋 リストをコピー</button>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function SettModal({affiliateTag,onSave,onClose}){
+  const[tag,setTag]=useState(affiliateTag);
+  return(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}><div className="modal" style={{maxWidth:440}}><div className="mhd"><div className="mttl">⚙ 設定</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div><div className="mbody"><div className="srow"><div className="slbl">Amazon アソシエイトタグ</div><div className="sdesc">例: <code>yourname-22</code></div><input className="sinput" value={tag} onChange={e=>setTag(e.target.value)} placeholder="例: yourname-22"/></div></div><div className="mfoot"><span/><div style={{display:'flex',gap:8}}><button className="btn btn-ghost btn-sm" onClick={onClose}>キャンセル</button><button className="btn btn-primary btn-sm" onClick={()=>{onSave(tag);onClose();}}>保存</button></div></div></div></div>);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  App
+// ═══════════════════════════════════════════════════════════════
+function App(){
+  const[nodes,setNodes]=useState([]);
+  const[conns,setConns]=useState([]);
+  const[selected,setSelected]=useState(null);
+  const[portEditNode,setPEN]=useState(null);
+  const[ix,setIx]=useState(null);
+  // 常に最新の ix を参照するための ref（React state コミット遅延を避ける）
+  const ixRef=React.useRef(null);
+  ixRef.current=ix;
+  // 配線長押し直後の click を抑制するためのフラグ
+  const wireLongPressRef=React.useRef(null);
+  const[portPreview,setPortPrev]=useState(null);
+  const[ghostPos,setGhost]=useState(null);
+  const[showBOM,setShowBOM]=useState(false);
+  const[showSett,setShowSett]=useState(false);
+  const[showCheck,setShowCheck]=useState(false);
+  const[showSim,setShowSim]=useState(false);
+  const[palOpen,setPalOpen]=useState(false);   // モバイル用パレット開閉
+  const[panOpen,setPanOpen]=useState(false);   // モバイル用右パネル開閉
+  const[systemV,setSystemV]=useState(12);
+  const[affTag,setAffTag]=useState(()=>DEPLOY_AFF_TAG||localStorage.getItem('aff_tag')||'');
+  const isDeployed=!!DEPLOY_AFF_TAG; // 公開モード（設定UIを隠す）
+  const[wireStyle,setWireStyle]=useState('click'); // 'curve' | 'straight' | 'ortho' | 'click'（デフォルト：クリック式）
+  const[toast,setToast]=useState(null);
+  // 中央表示の確認ダイアログ：{title?,message,onOK,okLabel?,cancelLabel?} | null
+  const[confirmDlg,setConfirmDlg]=useState(null);
+  // ── キャンバスのズーム/パン ──
+  const[zoom,setZoom]=useState(1);
+  const[pan,setPan]=useState({x:0,y:0});
+  const zoomRef=useRef(1); zoomRef.current=zoom;
+  const panRef=useRef({x:0,y:0}); panRef.current=pan;
+  const canvasRef=useRef(null);
+  const loadRef=useRef(null);
+  // スクリーン座標 → デザイン座標
+  const c2d=(cx,cy)=>{
+    const r=canvasRef.current?.getBoundingClientRect();
+    if(!r) return{x:cx,y:cy};
+    return{x:(cx-r.left-panRef.current.x)/zoomRef.current,y:(cy-r.top-panRef.current.y)/zoomRef.current};
+  };
+
+  // ── Undo / Redo ──
+  const hist=useRef([{nodes:[],conns:[]}]);
+  const histIdx=useRef(0);
+  const [histVer,setHistVer]=useState(0); // triggers re-render for button state
+  // Always-current refs (safe to read inside event handlers)
+  const nodesRef=useRef(nodes);
+  const connsRef=useRef(conns);
+  nodesRef.current=nodes;
+  connsRef.current=conns;
+
+  const pushHist=useCallback((ns,cs)=>{
+    const snap={nodes:JSON.parse(JSON.stringify(ns)),conns:JSON.parse(JSON.stringify(cs))};
+    hist.current=[...hist.current.slice(0,histIdx.current+1),snap];
+    histIdx.current=hist.current.length-1;
+    setHistVer(v=>v+1);
+  },[]);
+  const undo=useCallback(()=>{
+    // クリックモードで描画中：直前 waypoint を取消（履歴ではなく描画コンテキストの undo）
+    const cur=ixRef.current;
+    if(cur?.mode==='drawWire'&&cur.clickMode){
+      const wps=cur.waypoints||[];
+      if(wps.length>0){
+        setIx({...cur,waypoints:wps.slice(0,-1)});
+        return;
+      }
+      // waypoint 0個 → 描画キャンセル
+      setIx(null);setGhost(null);
+      return;
+    }
+    if(histIdx.current<=0) return;
+    histIdx.current--;
+    const snap=hist.current[histIdx.current];
+    // 描画中・操作中の ix/ghost をクリア（undo時にstaleなnodeIdを参照しないように）
+    setIx(null);setGhost(null);
+    setNodes(snap.nodes);setConns(snap.conns);setSelected(null);setPEN(null);
+    setHistVer(v=>v+1);
+  },[]);
+  const redo=useCallback(()=>{
+    if(histIdx.current>=hist.current.length-1) return;
+    histIdx.current++;
+    const snap=hist.current[histIdx.current];
+    setIx(null);setGhost(null);
+    setNodes(snap.nodes);setConns(snap.conns);setSelected(null);setPEN(null);
+    setHistVer(v=>v+1);
+  },[]);
+  const canUndo=histIdx.current>0;
+  const canRedo=histIdx.current<hist.current.length-1;
+
+  // Keyboard shortcuts: Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
+  useEffect(()=>{
+    const h=e=>{
+      const tag=document.activeElement?.tagName;
+      if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return; // don't intercept text input
+      if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo();}
+      else if((e.ctrlKey||e.metaKey)&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();redo();}
+    };
+    document.addEventListener('keydown',h);
+    return()=>document.removeEventListener('keydown',h);
+  },[undo,redo]);
+
+  // Quick check badge (error/warn count for header)
+  const checkBadge=useMemo(()=>{
+    if(nodes.length===0) return null;
+    const r=runChecks(nodes,conns);
+    const e=r.filter(x=>x.level==='error').length;
+    const w=r.filter(x=>x.level==='warn').length;
+    if(e>0) return{text:`❌ ${e}`,color:'#ef4444'};
+    if(w>0) return{text:`⚠ ${w}`,color:'#f59e0b'};
+    return{text:'✅',color:'#22c55e'};
+  },[nodes,conns]);
+
+  useEffect(()=>{if(!isDeployed)localStorage.setItem('aff_tag',affTag);},[affTag,isDeployed]);
+  useEffect(()=>{localStorage.setItem('offgrid_v3',JSON.stringify({nodes,conns,systemV,wireStyle}));},[nodes,conns,systemV,wireStyle]);
+  useEffect(()=>{
+    try{
+      const raw=localStorage.getItem('offgrid_v3')||localStorage.getItem('offgrid_v2');
+      if(raw){
+        const d=JSON.parse(raw);
+        const ns=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
+        const cs=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
+        if(d.nodes)setNodes(ns);
+        if(d.conns)setConns(cs);
+        if(d.systemV)setSystemV(d.systemV);
+        // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
+        setWireStyle('click');
+        // Initialize history with the loaded state (so undo doesn't go past initial load)
+        hist.current=[{nodes:JSON.parse(JSON.stringify(ns)),conns:JSON.parse(JSON.stringify(cs))}];
+        histIdx.current=0;
+      }
+    }catch(e){}
+  },[]);
+
+  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2000);};
+
+  // ── JSON Save / Load ──
+  const saveJSON=()=>{
+    const data=JSON.stringify({nodes,conns,systemV,wireStyle},null,2);
+    const blob=new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='offgrid-design.json'; a.click();
+    URL.revokeObjectURL(url); showToast('保存しました');
+  };
+  // PNG/PDF エクスポート
+  const captureCanvas=async()=>{
+    if(typeof html2canvas==='undefined'){showToast('エクスポートライブラリ読込中...');return null;}
+    const el=canvasRef.current; if(!el) return null;
+    // 一旦選択解除（ハイライト残らないように）
+    setSelected(null); setPEN(null);
+    await new Promise(r=>setTimeout(r,50));
+    return html2canvas(el,{backgroundColor:'#f8fafc',scale:2,logging:false,useCORS:true});
+  };
+  const exportPNG=async()=>{
+    showToast('画像を生成中...');
+    try{
+      const canvas=await captureCanvas(); if(!canvas) return;
+      const a=document.createElement('a');
+      a.download=`offgrid-design-${new Date().toISOString().slice(0,10)}.png`;
+      a.href=canvas.toDataURL('image/png'); a.click();
+      showToast('PNG をダウンロードしました');
+    }catch(err){console.error(err);showToast('エクスポート失敗: '+err.message);}
+  };
+  const exportPDF=async()=>{
+    showToast('PDF を生成中...');
+    try{
+      const canvas=await captureCanvas(); if(!canvas) return;
+      if(!window.jspdf){showToast('PDFライブラリ読込中、再度お試しください');return;}
+      const {jsPDF}=window.jspdf;
+      // 横向き、A4 サイズで配置
+      const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+      const pw=297, ph=210;
+      const imgRatio=canvas.height/canvas.width;
+      let w=pw-20, h=w*imgRatio;
+      if(h>ph-20){h=ph-20; w=h/imgRatio;}
+      const x=(pw-w)/2, y=20;
+      // タイトル
+      pdf.setFontSize(14); pdf.text('Offgrid Electrical Design',pw/2,12,{align:'center'});
+      pdf.setFontSize(8); pdf.text(`Generated: ${new Date().toLocaleString('ja-JP')} / System: ${systemV}V / Parts: ${nodes.length} / Wires: ${conns.length}`,pw/2,17,{align:'center'});
+      pdf.addImage(canvas.toDataURL('image/png'),'PNG',x,y,w,h);
+      pdf.save(`offgrid-design-${new Date().toISOString().slice(0,10)}.pdf`);
+      showToast('PDF をダウンロードしました');
+    }catch(err){console.error(err);showToast('エクスポート失敗: '+err.message);}
+  };
+  const loadJSON=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(d.nodes)setNodes(d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})));
+        if(d.conns)setConns(d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})));
+        if(d.systemV)setSystemV(d.systemV);
+        // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
+        setWireStyle('click');
+        setSelected(null); setPEN(null);
+        showToast('読み込みました');
+      }catch(err){showToast('読み込みエラー');}
+    };
+    r.readAsText(f); e.target.value='';
+  };
+
+  const onDragOver=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
+  // 配置位置が既存ノードと重なる場合は階段状にオフセット
+  const findNonOverlapPos=(x,y,w,h)=>{
+    const ns=nodesRef.current;
+    let cx=x, cy=y;
+    for(let i=0;i<30;i++){
+      const overlap=ns.some(n=>{
+        const {w:nw,h:nh}=nodeEffSize(n);
+        return cx<n.x+nw&&cx+w>n.x&&cy<n.y+nh&&cy+h>n.y;
+      });
+      if(!overlap) return{x:cx,y:cy};
+      cx+=24; cy+=24;
+    }
+    return{x:cx,y:cy};
+  };
+  const onDrop=e=>{
+    e.preventDefault(); const type=e.dataTransfer.getData('compType');
+    if(!type||!COMP[type]) return;
+    const d=COMP[type];
+    const dp=c2d(e.clientX,e.clientY);
+    // ドロップ時の上限解除：負座標も許可
+    const wantX=dp.x-d.w/2;
+    const wantY=dp.y-d.h/2;
+    const{x,y}=findNonOverlapPos(wantX,wantY,d.w,d.h);
+    const newNode={id:uid(),type,x,y,props:{...d.defaultProps},portPositions:{}};
+    const newNodes=[...nodesRef.current,newNode];
+    setNodes(newNodes);
+    setSelected({type:'node',id:newNode.id});
+    pushHist(newNodes,connsRef.current);
+  };
+
+  const onPortMouseDown=useCallback((e,nodeId,portId)=>{
+    e.preventDefault();
+    if(portEditNode===nodeId){setIx({mode:'movePort',nodeId,portId});return;}
+    // 最新の ix を参照（closure の古い値ではなく ref を見る）
+    const cIx=ixRef.current;
+    // クリックモード描画中：別ポートをクリックなら finalize、同じポートならキャンセル
+    if(cIx?.mode==='drawWire'&&cIx.clickMode){
+      if(cIx.nodeId===nodeId&&cIx.portId===portId){setIx(null);setGhost(null);return;}
+      // 再設定モード中は対象配線そのものを除外して exists 判定
+      const exists=connsRef.current.some(c=>c.id!==cIx.replaceConnId&&((c.fromNode===cIx.nodeId&&c.fromPort===cIx.portId&&c.toNode===nodeId&&c.toPort===portId)||(c.toNode===cIx.nodeId&&c.toPort===cIx.portId&&c.fromNode===nodeId&&c.fromPort===portId)));
+      if(!exists){
+        const ns=nodesRef.current;
+        const fromN=ns.find(n=>n.id===cIx.nodeId);
+        const toN=ns.find(n=>n.id===nodeId);
+        const fromPC=fromN?getNodePorts(fromN).find(p=>p.id===cIx.portId)?.color:null;
+        const toPC=toN?getNodePorts(toN).find(p=>p.id===portId)?.color:null;
+        let wcolor='#94a3b8';
+        if(fromPC==='#ef4444'&&toPC==='#ef4444') wcolor='#ef4444';
+        else if(fromPC==='#374151'&&toPC==='#374151') wcolor='#1f2937';
+        const newConn={id:uid(),fromNode:cIx.nodeId,fromPort:cIx.portId,toNode:nodeId,toPort:portId,amps:'',lenM:'',wireSize:'',wireColor:wcolor,customThick:null,waypoints:cIx.waypoints||[],style:'click'};
+        // 再設定モード（replaceConnId あり）：旧配線を削除して新配線を追加
+        const baseConns=cIx.replaceConnId?connsRef.current.filter(x=>x.id!==cIx.replaceConnId):connsRef.current;
+        const newConns=[...baseConns,newConn];
+        setConns(newConns);
+        pushHist(nodesRef.current,newConns);
+        showToast(cIx.replaceConnId?'配線を再設定しました':'接続しました');
+      }
+      setIx(null);setGhost(null);return;
+    }
+    // 通常モード or 新規描画開始：クリックモードなら clickMode フラグを立てる
+    setIx({mode:'drawWire',nodeId,portId,clickMode:wireStyle==='click',waypoints:[]});
+  },[portEditNode,wireStyle]);
+
+  const onPortMouseUp=useCallback((nodeId,portId)=>{
+    if(ix?.mode!=='drawWire') return;
+    // クリックモードでは pointerup では finalize しない（クリック式は onPortMouseDown で処理）
+    if(ix.clickMode) return;
+    if(ix.nodeId===nodeId&&ix.portId===portId){setIx(null);setGhost(null);return;}
+    const exists=conns.some(c=>(c.fromNode===ix.nodeId&&c.fromPort===ix.portId&&c.toNode===nodeId&&c.toPort===portId)||(c.toNode===ix.nodeId&&c.toPort===ix.portId&&c.fromNode===nodeId&&c.fromPort===portId));
+    if(!exists){
+      const ns=nodesRef.current;
+      const fromN=ns.find(n=>n.id===ix.nodeId);
+      const toN=ns.find(n=>n.id===nodeId);
+      const fromPC=fromN?getNodePorts(fromN).find(p=>p.id===ix.portId)?.color:null;
+      const toPC=toN?getNodePorts(toN).find(p=>p.id===portId)?.color:null;
+      let wcolor='#94a3b8';
+      if(fromPC==='#ef4444'&&toPC==='#ef4444') wcolor='#ef4444';
+      else if(fromPC==='#374151'&&toPC==='#374151') wcolor='#1f2937';
+      const newConn={id:uid(),fromNode:ix.nodeId,fromPort:ix.portId,toNode:nodeId,toPort:portId,amps:'',lenM:'',wireSize:'',wireColor:wcolor,customThick:null,waypoints:[]};
+      const newConns=[...conns,newConn];
+      setConns(newConns);
+      pushHist(nodesRef.current,newConns);
+      showToast('接続しました（電流・長さ・サイズは自動計算されます）');
+    }
+    setIx(null);setGhost(null);
+  },[ix,conns,systemV]);
+
+  // モバイル時、選択中のノードを上半分に自動配置してパネルを開く
+  const openPanelForNode=useCallback((nodeId)=>{
+    if(!canvasRef.current) return;
+    const node=nodesRef.current.find(n=>n.id===nodeId); if(!node) return;
+    const r=canvasRef.current.getBoundingClientRect();
+    const{w:nw,h:nh}=nodeEffSize(node);
+    const z=zoomRef.current;
+    const isMobile=window.innerWidth<=700;
+    const visibleH=isMobile?Math.max(120,r.height*0.45):r.height;
+    setPan({x:r.width/2-(node.x+nw/2)*z,y:visibleH/2-(node.y+nh/2)*z});
+    setPanOpen(true);
+  },[]);
+
+  const onNodeMouseDown=useCallback((e,nodeId)=>{
+    if(ix?.mode==='drawWire') return;
+    e.stopPropagation();
+    const node=nodes.find(n=>n.id===nodeId);
+    setSelected({type:'node',id:nodeId});
+    const dp=c2d(e.clientX,e.clientY);
+    // origX/Y を保存しておき、pointerup 時に「タップだったか / ドラッグだったか」を判定
+    setIx({mode:'moveNode',nodeId,ox:dp.x-node.x,oy:dp.y-node.y,origX:node.x,origY:node.y});
+  },[nodes,ix]);
+
+  const onBendMouseDown=useCallback((e,connId,wpIndex)=>{e.stopPropagation();setIx({mode:'moveBend',connId,wpIndex});},[]);
+
+  // ── 配線セグメントのドラッグ（垂直方向への平行移動）──
+  const onWireSegMouseDown=useCallback((e,connId)=>{
+    // 描画中（特に再設定モード）はセグメントドラッグを抑制
+    if(ix?.mode==='drawWire') return;
+    if(ix&&ix.mode!=='drawWire') return;
+    const cs=connsRef.current; const ns=nodesRef.current;
+    const conn=cs.find(c=>c.id===connId); if(!conn) return;
+    // セグメントのドラッグは ortho 自動ルーティングのみ対応（click 式は手動編集）
+    if((conn.style||'ortho')!=='ortho') return;
+    const dp=c2d(e.clientX,e.clientY);
+    const cx=dp.x, cy=dp.y;
+    // 仮想pts（中継点なしの場合は描画上の角を含めて構築）
+    const hasWps=conn.waypoints&&conn.waypoints.length>0;
+    let virtualPts, needsConversion=false;
+    if(hasWps){
+      virtualPts=connPts(conn,ns);
+    } else {
+      const prevSegs=[];
+      for(const c of cs){
+        if(c.id===connId) break;
+        const cPts=connPts(c,ns); if(!cPts) continue;
+        const r=buildPath(cPts,wireStyle,ns,c.fromNode,c.toNode,c.fromPort,c.toPort,prevSegs);
+        prevSegs.push(...r.segs);
+      }
+      const myPts=connPts(conn,ns); if(!myPts) return;
+      const r=buildPath(myPts,wireStyle,ns,conn.fromNode,conn.toNode,conn.fromPort,conn.toPort,prevSegs);
+      const rawC=r.segs.slice(0,-1).map(s=>({x:s.bx,y:s.by}));
+      const corners=[];
+      for(const c of rawC){const l=corners[corners.length-1];if(!l||Math.abs(l.x-c.x)>0.5||Math.abs(l.y-c.y)>0.5)corners.push(c);}
+      virtualPts=[myPts[0],...corners,myPts[myPts.length-1]];
+      needsConversion=true;
+    }
+    if(!virtualPts||virtualPts.length<2) return;
+    // 最も近い「ドラッグ可能なサブセグメント」を探す（H-V経路想定）
+    let best=null, bestD=Infinity;
+    for(let i=0;i<virtualPts.length-1;i++){
+      const p=virtualPts[i], q=virtualPts[i+1];
+      // H サブセグメント: y=p.y, x in [p.x, q.x]  — pがwaypointの時のみ移動可
+      if(i>0){
+        const minX=Math.min(p.x,q.x), maxX=Math.max(p.x,q.x);
+        if(maxX-minX>4 && cx>=minX-4 && cx<=maxX+4){
+          const d=Math.abs(cy-p.y);
+          if(d<bestD){bestD=d;best={axis:'h',anchor:i,other:i+1,samePos:Math.abs(p.y-q.y)<0.5,otherIsWp:(i+1)>0&&(i+1)<virtualPts.length-1};}
+        }
+      }
+      // V サブセグメント: x=q.x, y in [p.y, q.y]  — qがwaypointの時のみ移動可
+      if(i+1<virtualPts.length-1){
+        const minY=Math.min(p.y,q.y), maxY=Math.max(p.y,q.y);
+        if(maxY-minY>4 && cy>=minY-4 && cy<=maxY+4){
+          const d=Math.abs(cx-q.x);
+          if(d<bestD){bestD=d;best={axis:'v',anchor:i+1,other:i,samePos:Math.abs(p.x-q.x)<0.5,otherIsWp:i>0&&i<virtualPts.length-1};}
+        }
+      }
+    }
+    if(!best||bestD>12) return;
+    // ペンディングモードに入る（実際の変換は最初のドラッグ移動時に行う）
+    setIx({mode:'dragSegPending',connId,virtualPts,needsConversion,segInfo:best,startX:cx,startY:cy});
+  },[ix,wireStyle]);
+
+  const onResizeMouseDown=useCallback((e,nodeId,curW,curH)=>{
+    setSelected({type:'node',id:nodeId});
+    const dp=c2d(e.clientX,e.clientY);
+    setIx({mode:'resizeNode',nodeId,ox:dp.x,oy:dp.y,startW:curW,startH:curH});
+  },[]);
+  const resizeNode=(id,w,h)=>setNodes(prev=>prev.map(n=>n.id===id?{...n,nodeW:w==null?undefined:Math.max(60,w),nodeH:h==null?undefined:Math.max(36,h)}:n));
+  const rotateNode=(id,rotation)=>{
+    const newNodes=nodesRef.current.map(n=>n.id===id?{...n,rotation}:n);
+    setNodes(newNodes);
+    pushHist(newNodes,connsRef.current);
+  };
+  const changeBusPortCount=(id,newCount)=>{
+    const ns=nodesRef.current, cs=connsRef.current;
+    const node=ns.find(n=>n.id===id); if(!node) return;
+    const validIds=new Set(); for(let i=0;i<newCount;i++) validIds.add(`p${i}`);
+    // 旧ポートに接続されている配線を検出
+    const orphan=cs.filter(c=>
+      (c.fromNode===id&&!validIds.has(c.fromPort))||
+      (c.toNode===id&&!validIds.has(c.toPort)));
+    if(orphan.length>0&&!confirm(`${orphan.length}本の配線が削除されます。続行しますか？`)) return;
+    const newNodes=ns.map(n=>n.id===id?{...n,props:{...n.props,portCount:newCount}}:n);
+    const orphanIds=new Set(orphan.map(c=>c.id));
+    // 残る配線を取り、削除予定の orphan を除外しつつ形を保存
+    const newConns=freezeRemainingWires(cs,ns,Array.from(orphanIds));
+    setNodes(newNodes); setConns(newConns);
+    pushHist(newNodes,newConns);
+  };
+
+  const addWaypoint=useCallback((connId,segIdx,pos)=>{
+    const conns=connsRef.current;
+    const nodes=nodesRef.current;
+    const conn=conns.find(c=>c.id===connId);
+    if(!conn){return;}
+    const hasWps=conn.waypoints&&conn.waypoints.length>0;
+    let newWps;
+    if(!hasWps&&wireStyle==='ortho'){
+      // 中継点追加時に現在の迂回経路を保持する：可視経路の角を中継点として保存
+      // 先行配線の重複セグメントも考慮するため再計算
+      const prevSegs=[];
+      for(const c of conns){
+        if(c.id===connId)break;
+        const cPts=connPts(c,nodes);if(!cPts)continue;
+        const r=buildPath(cPts,wireStyle,nodes,c.fromNode,c.toNode,c.fromPort,c.toPort,prevSegs);
+        prevSegs.push(...r.segs);
+      }
+      const myPts=connPts(conn,nodes);
+      if(myPts){
+        const r=buildPath(myPts,wireStyle,nodes,conn.fromNode,conn.toNode,conn.fromPort,conn.toPort,prevSegs);
+        // 経路の角（中間点）を抽出し、ゼロ長を除去
+        const rawC=r.segs.slice(0,-1).map(s=>({x:s.bx,y:s.by}));
+        const corners=[];
+        for(const c of rawC){const l=corners[corners.length-1];if(!l||Math.abs(l.x-c.x)>0.5||Math.abs(l.y-c.y)>0.5)corners.push(c);}
+        // 簡略化された経路: [p, ...corners, q]
+        const p={x:r.segs[0].ax,y:r.segs[0].ay};
+        const q={x:r.segs[r.segs.length-1].bx,y:r.segs[r.segs.length-1].by};
+        const simPts=[p,...corners,q];
+        // クリック位置を各セグメントに射影し、最も近いセグメントを見つける
+        let bestI=0,bestD=Infinity,bestP={x:pos.x,y:pos.y};
+        for(let i=0;i<simPts.length-1;i++){
+          const ax=simPts[i].x,ay=simPts[i].y,bx=simPts[i+1].x,by=simPts[i+1].y;
+          const dx=bx-ax,dy=by-ay;
+          const l2=dx*dx+dy*dy;if(l2<0.25)continue;
+          let t=((pos.x-ax)*dx+(pos.y-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+          const cx=ax+t*dx,cy=ay+t*dy;
+          const d=Math.hypot(pos.x-cx,pos.y-cy);
+          if(d<bestD){bestD=d;bestI=i;bestP={x:cx,y:cy};}
+        }
+        newWps=[...corners];
+        newWps.splice(Math.min(bestI,corners.length),0,bestP);
+      } else {
+        newWps=[{x:pos.x,y:pos.y}];
+      }
+    } else {
+      newWps=[...(conn.waypoints||[])];
+      newWps.splice(segIdx,0,{x:pos.x,y:pos.y});
+    }
+    const newConns=conns.map(c=>c.id===connId?{...c,waypoints:newWps}:c);
+    setConns(newConns);pushHist(nodes,newConns);
+    showToast('中継点を追加しました');
+  },[pushHist,wireStyle]);
+  const removeWaypoint=useCallback((connId,wpIdx)=>{
+    const newConns=connsRef.current.map(c=>{if(c.id!==connId)return c;const wps=[...(c.waypoints||[])];wps.splice(wpIdx,1);return{...c,waypoints:wps};});
+    setConns(newConns);pushHist(nodesRef.current,newConns);
+  },[pushHist]);
+
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    const onMove=e=>{
+      if(!ix) return;
+      const dp=c2d(e.clientX,e.clientY);
+      if(ix.mode==='moveNode'){
+        // 上下左右の上限解除：負座標も許可（上にはみ出す配置を許容）
+        setNodes(prev=>prev.map(n=>n.id===ix.nodeId?{...n,x:dp.x-ix.ox,y:dp.y-ix.oy}:n));
+      } else if(ix.mode==='drawWire'){
+        setGhost({x:dp.x,y:dp.y});
+      } else if(ix.mode==='movePort'){
+        const node=nodes.find(n=>n.id===ix.nodeId); if(!node) return;
+        const {w:nw,h:nh}=nodeEffSize(node);
+        const snapped=snapToEdge(dp.x-node.x,dp.y-node.y,nw,nh);
+        setPortPrev({nodeId:ix.nodeId,portId:ix.portId,...snapped});
+      } else if(ix.mode==='resizeNode'){
+        const node=nodesRef.current.find(n=>n.id===ix.nodeId);
+        const rot=((node?.rotation||0)%360+360)%360;
+        const isRot=(rot===90||rot===270);
+        const dw=dp.x-ix.ox, dh=dp.y-ix.oy;
+        // 回転後は dw が「表示の横」=元の縦、dh が「表示の縦」=元の横を変える
+        const nw=Math.max(60, isRot?(ix.startW+dh):(ix.startW+dw));
+        const nh=Math.max(36, isRot?(ix.startH+dw):(ix.startH+dh));
+        setNodes(prev=>prev.map(n=>n.id===ix.nodeId?{...n,nodeW:nw,nodeH:nh}:n));
+      } else if(ix.mode==='moveBend'){
+        setConns(prev=>prev.map(c=>{if(c.id!==ix.connId)return c;const wps=[...(c.waypoints||[])];wps[ix.wpIndex]={x:dp.x,y:dp.y};return{...c,waypoints:wps};}));
+      } else if(ix.mode==='dragSegPending'){
+        // 最初の移動を検出したら実際のドラッグモードに切替
+        const cx=dp.x, cy=dp.y;
+        const dx=cx-ix.startX, dy=cy-ix.startY;
+        if(Math.abs(dx)<3&&Math.abs(dy)<3) return;
+        // 角を中継点として保存（必要なら）
+        let newWps;
+        if(ix.needsConversion){
+          newWps=ix.virtualPts.slice(1,-1).map(p=>({x:p.x,y:p.y}));
+          setConns(prev=>prev.map(c=>c.id===ix.connId?{...c,waypoints:newWps}:c));
+        } else {
+          const conn=connsRef.current.find(c=>c.id===ix.connId);
+          newWps=conn?(conn.waypoints||[]):[];
+        }
+        const seg=ix.segInfo;
+        const anchorIdx=seg.anchor-1, otherIdx=seg.other-1;
+        const moving=[anchorIdx];
+        if(seg.samePos&&seg.otherIsWp) moving.push(otherIdx);
+        const orig={};
+        for(const idx of moving){
+          const wp=newWps[idx];
+          if(wp) orig[idx]=seg.axis==='h'?wp.y:wp.x;
+        }
+        setIx({mode:'dragSeg',connId:ix.connId,axis:seg.axis,moving,orig,startX:ix.startX,startY:ix.startY});
+      } else if(ix.mode==='dragSeg'){
+        const cx=dp.x, cy=dp.y;
+        const delta=ix.axis==='h'?(cy-ix.startY):(cx-ix.startX);
+        setConns(prev=>prev.map(c=>{
+          if(c.id!==ix.connId) return c;
+          const wps=(c.waypoints||[]).map((wp,idx)=>{
+            if(ix.moving.includes(idx)){
+              const o=ix.orig[idx];
+              return ix.axis==='h'?{...wp,y:o+delta}:{...wp,x:o+delta};
+            }
+            return wp;
+          });
+          return{...c,waypoints:wps};
+        }));
+      }
+    };
+    const onUp=e=>{
+      // ピンチ・2本指パンに参加した pointer はここで無視（描画やドラッグの終端として処理しない）
+      const pr=pinchRef.current;
+      if(pr?.pinched?.has(e.pointerId)){
+        pr.pinched.delete(e.pointerId);
+        return;
+      }
+      if(ix?.mode==='movePort'&&portPreview){
+        // 表示座標 → 元座標へ逆変換して保存（回転に対して一貫性を保つ）
+        const newNodes=nodesRef.current.map(n=>{
+          if(n.id!==portPreview.nodeId) return n;
+          const orig=unrotatePortPos(n,portPreview.px,portPreview.py);
+          return{...n,portPositions:{...(n.portPositions||{}),[portPreview.portId]:{px:orig.px,py:orig.py}}};
+        });
+        setNodes(newNodes);
+        setPortPrev(null);
+        pushHist(newNodes,connsRef.current);
+      } else if(ix?.mode==='moveNode'||ix?.mode==='resizeNode'){
+        pushHist(nodesRef.current,connsRef.current);
+        // モバイル: ノードを「タップ」した場合（ほぼ動いていない）→ 設定パネルを自動展開
+        if(ix.mode==='moveNode'&&window.innerWidth<=700){
+          const n=nodesRef.current.find(x=>x.id===ix.nodeId);
+          if(n&&Math.abs(n.x-ix.origX)<3&&Math.abs(n.y-ix.origY)<3){
+            openPanelForNode(ix.nodeId);
+          }
+        }
+      } else if(ix?.mode==='moveBend'){
+        pushHist(nodesRef.current,connsRef.current);
+      } else if(ix?.mode==='dragSeg'){
+        pushHist(nodesRef.current,connsRef.current);
+      } else if(ix?.mode==='drawWire'&&e&&!ix.clickMode){
+        // pointerup 位置の下にポートがあれば接続完了（タッチ環境での pointer capture 対策）
+        // クリックモードは onPortMouseDown で finalize するためここはスキップ
+        const el=document.elementFromPoint(e.clientX,e.clientY);
+        const port=el?.closest?.('.port');
+        if(port){
+          const nodeId=port.getAttribute('data-node-id');
+          const portId=port.getAttribute('data-port-id');
+          if(nodeId&&portId&&!(ix.nodeId===nodeId&&ix.portId===portId)){
+            const exists=connsRef.current.some(c=>(c.fromNode===ix.nodeId&&c.fromPort===ix.portId&&c.toNode===nodeId&&c.toPort===portId)||(c.toNode===ix.nodeId&&c.toPort===ix.portId&&c.fromNode===nodeId&&c.fromPort===portId));
+            if(!exists){
+              const ns=nodesRef.current;
+              const fromN=ns.find(n=>n.id===ix.nodeId);
+              const toN=ns.find(n=>n.id===nodeId);
+              const fromPC=fromN?getNodePorts(fromN).find(p=>p.id===ix.portId)?.color:null;
+              const toPC=toN?getNodePorts(toN).find(p=>p.id===portId)?.color:null;
+              let wcolor='#94a3b8';
+              if(fromPC==='#ef4444'&&toPC==='#ef4444') wcolor='#ef4444';
+              else if(fromPC==='#374151'&&toPC==='#374151') wcolor='#1f2937';
+              const newConn={id:uid(),fromNode:ix.nodeId,fromPort:ix.portId,toNode:nodeId,toPort:portId,amps:'',lenM:'',wireSize:'',wireColor:wcolor,customThick:null,waypoints:[]};
+              const newConns=[...connsRef.current,newConn];
+              setConns(newConns);
+              pushHist(nodesRef.current,newConns);
+              showToast('接続しました（電流・長さ・サイズは自動計算されます）');
+            }
+          }
+        }
+      }
+      // クリックモード描画中：ixRef.current を使用（onPortMouseDown が直前に setIx しても、closure 内の古い ix では検知できないため）
+      const curIx=ixRef.current||ix;
+      if(curIx?.mode==='drawWire'&&curIx.clickMode&&e){
+        // pointerup 位置の要素を確認
+        const el=document.elementFromPoint(e.clientX,e.clientY);
+        const portEl=el?.closest?.('.port');
+        if(portEl){
+          const nodeId=portEl.getAttribute('data-node-id');
+          const portId=portEl.getAttribute('data-port-id');
+          if(nodeId===curIx.nodeId&&portId===curIx.portId){
+            // 開始ポート上で release → 描画継続（最初のタップ）
+            return;
+          }
+          // 別ポート上で release → 配線完了（onPortMouseDown と同じ処理）
+          const exists=connsRef.current.some(c=>c.id!==curIx.replaceConnId&&((c.fromNode===curIx.nodeId&&c.fromPort===curIx.portId&&c.toNode===nodeId&&c.toPort===portId)||(c.toNode===curIx.nodeId&&c.toPort===curIx.portId&&c.fromNode===nodeId&&c.fromPort===portId)));
+          if(!exists){
+            const ns=nodesRef.current;
+            const fromN=ns.find(n=>n.id===curIx.nodeId);
+            const toN=ns.find(n=>n.id===nodeId);
+            const fromPC=fromN?getNodePorts(fromN).find(p=>p.id===curIx.portId)?.color:null;
+            const toPC=toN?getNodePorts(toN).find(p=>p.id===portId)?.color:null;
+            let wcolor='#94a3b8';
+            if(fromPC==='#ef4444'&&toPC==='#ef4444') wcolor='#ef4444';
+            else if(fromPC==='#374151'&&toPC==='#374151') wcolor='#1f2937';
+            const newConn={id:uid(),fromNode:curIx.nodeId,fromPort:curIx.portId,toNode:nodeId,toPort:portId,amps:'',lenM:'',wireSize:'',wireColor:wcolor,customThick:null,waypoints:curIx.waypoints||[],style:'click'};
+            // 再設定モード：旧配線を削除して新配線を追加
+            const baseConns=curIx.replaceConnId?connsRef.current.filter(x=>x.id!==curIx.replaceConnId):connsRef.current;
+            const newConns=[...baseConns,newConn];
+            setConns(newConns);
+            pushHist(nodesRef.current,newConns);
+            showToast(curIx.replaceConnId?'配線を再設定しました':'接続しました');
+          }
+          setIx(null);setGhost(null);return;
+        }
+        // 部品本体（ポート以外のノード内）で release → 描画キャンセル
+        const nodeEl=el?.closest?.('.nd');
+        if(nodeEl){
+          setIx(null);setGhost(null);
+          showToast('描画をキャンセルしました');
+          return;
+        }
+        // 空キャンバスで release → waypoint 追加
+        const dp=c2d(e.clientX,e.clientY);
+        const ns=nodesRef.current;
+        const startPort=portAbs(ns,curIx.nodeId,curIx.portId);
+        if(startPort){
+          const wps=curIx.waypoints||[];
+          const prev=wps.length>0?wps[wps.length-1]:startPort;
+          // 開始ポート位置と同じならスキップ（最初の release）
+          if(Math.abs(dp.x-startPort.x)<3&&Math.abs(dp.y-startPort.y)<3&&wps.length===0) return;
+          const snapped=snap90(prev,dp);
+          setIx({...curIx,waypoints:[...wps,snapped]});
+        }
+        return;
+      }
+      if(ix?.mode==='drawWire') setGhost(null);
+      // 再設定モード（drawWire+clickMode+replaceConnId）が他経路で設定されている場合は ix を保持
+      const cur=ixRef.current;
+      if(cur?.mode==='drawWire'&&cur.clickMode) return;
+      setIx(null);
+    };
+    document.addEventListener('pointermove',onMove);
+    document.addEventListener('pointerup',onUp);
+    return()=>{document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onUp);};
+  },[ix,nodes,portPreview]);
+
+  const onCanvasClick=e=>{
+    if(e.target===canvasRef.current||e.target.classList.contains('cvs-bg')||e.target.classList.contains('cvs-xform')||e.target.classList.contains('cvs-svg')||e.target.classList.contains('cvs-nodes')){
+      // waypoint 追加は pointerup ハンドラで実施（タップ/ドラッグ共通）
+      if(ix?.mode==='drawWire'&&ix.clickMode) return;
+      setSelected(null);setPEN(null);
+      if(ix?.mode==='drawWire'){setIx(null);setGhost(null);}
+    }
+  };
+  // ESC / 右クリック でクリック式描画をキャンセル
+  useEffect(()=>{
+    const onKey=e=>{
+      if(e.key==='Escape'&&ix?.mode==='drawWire'){setIx(null);setGhost(null);}
+      // Backspace で最後の waypoint を取り消し
+      if((e.key==='Backspace'||e.key==='Delete')&&ix?.mode==='drawWire'&&ix.clickMode){
+        const wps=ix.waypoints||[];
+        if(wps.length>0){setIx({...ix,waypoints:wps.slice(0,-1)});e.preventDefault();}
+      }
+    };
+    const onCtx=e=>{
+      // キャンバス領域内のコンテキストメニュー（長押し由来のコピー/選択メニュー）は常に抑制
+      const cv=canvasRef.current;
+      const inCanvas=cv&&cv.contains(e.target);
+      if(inCanvas) e.preventDefault();
+      // 描画モードのキャンセル：マウス右クリック相当のみ（クリックモードは長押し由来で頻発するため対象外）
+      if(ix?.mode==='drawWire'&&!ix.clickMode){e.preventDefault();setIx(null);setGhost(null);}
+    };
+    document.addEventListener('keydown',onKey);
+    document.addEventListener('contextmenu',onCtx);
+    return()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('contextmenu',onCtx);};
+  },[ix]);
+  // 指定スクリーン座標を中心に factor 倍ズーム
+  const zoomAt=(factor,screenX,screenY)=>{
+    const r=canvasRef.current?.getBoundingClientRect(); if(!r) return;
+    const z0=zoomRef.current, p0=panRef.current;
+    const z1=Math.min(4,Math.max(0.2,z0*factor));
+    const f=z1/z0;
+    // ズーム点が動かないようパンを補正
+    const cx=screenX-r.left, cy=screenY-r.top;
+    const nx=p0.x+(cx-p0.x)*(1-f);
+    const ny=p0.y+(cy-p0.y)*(1-f);
+    setZoom(z1); setPan({x:nx,y:ny});
+  };
+  // マウスホイール: 通常=パン, Ctrl+ホイール=ズーム
+  const onCanvasWheel=e=>{
+    if(e.ctrlKey||e.metaKey){
+      e.preventDefault();
+      const f=e.deltaY<0?1.1:0.9;
+      zoomAt(f,e.clientX,e.clientY);
+    } else {
+      e.preventDefault();
+      setPan(p=>({x:p.x-e.deltaX,y:p.y-e.deltaY}));
+    }
+  };
+  // ピンチ・2本指パン制御
+  const pinchRef=useRef(null); // {p1, p2, dist, mid, startZoom, startPan}
+  const onCanvasPointerDown=e=>{
+    // 2点目のタッチで pinch モードに入る（1点目は通常のドラッグへ任せる）
+    if(e.pointerType!=='touch') return;
+    if(!pinchRef.current){
+      pinchRef.current={pointers:new Map([[e.pointerId,{x:e.clientX,y:e.clientY}]])};
+    } else {
+      pinchRef.current.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(pinchRef.current.pointers.size===2){
+        const pts=[...pinchRef.current.pointers.values()];
+        const dx=pts[1].x-pts[0].x, dy=pts[1].y-pts[0].y;
+        pinchRef.current.startDist=Math.hypot(dx,dy);
+        pinchRef.current.startMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};
+        pinchRef.current.startZoom=zoomRef.current;
+        pinchRef.current.startPan={...panRef.current};
+        // 2本指ジェスチャ参加中の pointerId を記録 → 描画 onUp 側で waypoint 追加を抑制
+        pinchRef.current.pinched=new Set(pinchRef.current.pointers.keys());
+        // 進行中の通常ドラッグを中断（ピンチ優先）。ただし クリックモード描画（手動再設定）中は保持
+        const cur=ixRef.current;
+        if(!(cur?.mode==='drawWire'&&cur.clickMode)){
+          setIx(null); setGhost(null);
+        }
+      }
+    }
+  };
+  useEffect(()=>{
+    const onMove=e=>{
+      const pr=pinchRef.current; if(!pr||e.pointerType!=='touch') return;
+      if(!pr.pointers.has(e.pointerId)) return;
+      pr.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(pr.pointers.size>=2&&pr.startDist){
+        const pts=[...pr.pointers.values()].slice(0,2);
+        const dx=pts[1].x-pts[0].x, dy=pts[1].y-pts[0].y;
+        const dist=Math.hypot(dx,dy);
+        const mid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};
+        const r=canvasRef.current.getBoundingClientRect();
+        const z1=Math.min(4,Math.max(0.2,pr.startZoom*(dist/pr.startDist)));
+        const f=z1/pr.startZoom;
+        // ピンチ中心が startMid から現在の mid に移動 + ズーム補正
+        const cx=pr.startMid.x-r.left, cy=pr.startMid.y-r.top;
+        const nx=pr.startPan.x+(cx-pr.startPan.x)*(1-f)+(mid.x-pr.startMid.x);
+        const ny=pr.startPan.y+(cy-pr.startPan.y)*(1-f)+(mid.y-pr.startMid.y);
+        setZoom(z1); setPan({x:nx,y:ny});
+      }
+    };
+    const onUp=e=>{
+      const pr=pinchRef.current; if(!pr) return;
+      pr.pointers.delete(e.pointerId);
+      if(pr.pointers.size===0) pinchRef.current=null;
+      else if(pr.pointers.size<2) pr.startDist=null;
+    };
+    document.addEventListener('pointermove',onMove);
+    document.addEventListener('pointerup',onUp);
+    document.addEventListener('pointercancel',onUp);
+    return()=>{document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onUp);document.removeEventListener('pointercancel',onUp);};
+  },[]);
+  const updateNode=(id,props)=>{const newNodes=nodesRef.current.map(n=>n.id===id?{...n,props}:n);setNodes(newNodes);pushHist(newNodes,connsRef.current);};
+  // サンプル構成を読み込む
+  const loadSample=(sample)=>{
+    const data=sample.build();
+    setNodes(data.nodes);
+    setConns(data.conns);
+    setSelected(null); setPEN(null);
+    setPan({x:0,y:0}); setZoom(1);
+    pushHist(data.nodes,data.conns);
+    showToast(`${sample.label} を読み込みました`);
+  };
+  const updateConn=(id,patch)=>{const newConns=connsRef.current.map(c=>c.id===id?{...c,...patch}:c);setConns(newConns);pushHist(nodesRef.current,newConns);};
+
+  // 削除前に残る配線の現在の形を中継点として固定する（他の配線の経路が変わらないようにするため）
+  const freezeRemainingWires=(conns,nodes,removeIds)=>{
+    if(wireStyle!=='ortho') return conns.filter(c=>!removeIds.includes(c.id));
+    const prevSegs=[]; const result=[];
+    for(const c of conns){
+      const pts=connPts(c,nodes);
+      if(!pts){ if(!removeIds.includes(c.id)) result.push(c); continue; }
+      const cStyle=c.style||'ortho';
+      const r=buildPath(pts,cStyle,nodes,c.fromNode,c.toNode,c.fromPort,c.toPort,prevSegs);
+      prevSegs.push(...r.segs);
+      if(removeIds.includes(c.id)) continue;
+      // 中継点がない配線のみ、現在の角を中継点として保存
+      if(!c.waypoints||c.waypoints.length===0){
+        const rawC=r.segs.slice(0,-1).map(s=>({x:s.bx,y:s.by}));
+        const corners=[];
+        for(const cn of rawC){const l=corners[corners.length-1];if(!l||Math.abs(l.x-cn.x)>0.5||Math.abs(l.y-cn.y)>0.5)corners.push(cn);}
+        result.push({...c,waypoints:corners});
+      } else {
+        result.push(c);
+      }
+    }
+    return result;
+  };
+
+  const delSelected=()=>{
+    if(!selected) return;
+    const ns=nodesRef.current, cs=connsRef.current;
+    let newNodes=ns, newConns;
+    if(selected.type==='node'){
+      const delNodeId=selected.id;
+      // 削除対象ノードに接続された配線ID
+      const removeWireIds=cs.filter(c=>c.fromNode===delNodeId||c.toNode===delNodeId).map(c=>c.id);
+      newNodes=ns.filter(n=>n.id!==delNodeId);
+      // 残る配線の形を保持しつつ削除対象の配線を除外
+      newConns=freezeRemainingWires(cs,ns,removeWireIds);
+      setNodes(newNodes);setConns(newConns);
+    } else {
+      newConns=freezeRemainingWires(cs,ns,[selected.id]);
+      setConns(newConns);
+    }
+    setSelected(null);setPEN(null);
+    pushHist(newNodes,newConns);
+  };
+  const clearAll=()=>{if(nodes.length===0&&conns.length===0)return;if(confirm('キャンバスをクリアしますか？')){setNodes([]);setConns([]);setSelected(null);setPEN(null);setIx(null);}};
+
+  const ghostLine=useMemo(()=>{
+    if(!ix||ix.mode!=='drawWire'||!ghostPos) return null;
+    const startPort=portAbs(nodes,ix.nodeId,ix.portId);
+    if(!startPort) return null;
+    if(ix.clickMode){
+      // クリックモード：カーソル位置を直前点に対して snap90 補正してプレビュー表示
+      const wps=ix.waypoints||[];
+      const prev=wps.length>0?wps[wps.length-1]:startPort;
+      const snapped=snap90(prev,ghostPos);
+      return{points:[startPort,...wps,snapped]};
+    }
+    return{p1:startPort,p2:ghostPos};
+  },[ix,ghostPos,nodes]);
+
+  const selConn=selected?.type==='conn'?conns.find(c=>c.id===selected.id):null;
+
+  const portPreviewColor=useMemo(()=>{
+    if(!portPreview) return'#ef4444';
+    const node=nodes.find(n=>n.id===portPreview.nodeId); if(!node) return'#ef4444';
+    const p=getNodePorts(node).find(p=>p.id===portPreview.portId);
+    return p?.color||'#ef4444';
+  },[portPreview,nodes]);
+
+  const edgeHighlight=useMemo(()=>{
+    if(!portPreview||!ix||ix.mode!=='movePort') return null;
+    const node=nodes.find(n=>n.id===ix.nodeId); if(!node) return null;
+    const {edge}=portPreview;
+    const {w:nw,h:nh}=nodeEffSize(node);
+    if(edge==='top')    return{left:node.x,top:node.y-2,width:nw,height:4};
+    if(edge==='bottom') return{left:node.x,top:node.y+nh-2,width:nw,height:4};
+    if(edge==='left')   return{left:node.x-2,top:node.y,width:4,height:nh};
+    return                    {left:node.x+nw-2,top:node.y,width:4,height:nh};
+  },[portPreview,ix,nodes]);
+
+  return(
+    <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
+      <div className="hdr">
+        <div>
+          <div className="hdr-title">⚡ オフグリッド電気設計ツール</div>
+          <div className="hdr-sub">キャンピングカー / トレーラー / オフグリッド</div>
+        </div>
+        {/* UNDO/REDO は左寄せ */}
+        <div style={{display:'flex',gap:4,marginLeft:8}}>
+          <button className="btn btn-outline" onClick={undo} disabled={!canUndo} title="元に戻す (Ctrl+Z)"
+            style={{opacity:canUndo?1:0.35,fontSize:16,padding:'4px 9px'}}>↩</button>
+          <button className="btn btn-outline" onClick={redo} disabled={!canRedo} title="やり直す (Ctrl+Y)"
+            style={{opacity:canRedo?1:0.35,fontSize:16,padding:'4px 9px'}}>↪</button>
+        </div>
+        <div className="hdr-right">
+          {/* 配線モード切替：クリック式デフォルト。自動モードは非表示（必要なら下記コメント解除） */}
+          {/* <div style={{display:'flex',gap:2,marginRight:6}}>
+            <button className={wireStyle==='ortho'?'btn btn-primary':'btn btn-outline'}
+              style={{fontSize:11,padding:'4px 8px'}} title="自動直角ルーティング"
+              onClick={()=>setWireStyle('ortho')}>自動</button>
+            <button className={wireStyle==='click'?'btn btn-primary':'btn btn-outline'}
+              style={{fontSize:11,padding:'4px 8px'}} title="クリックでウェイポイントを置く"
+              onClick={()=>setWireStyle('click')}>クリック</button>
+          </div> */}
+          <span className="vlbl">電圧</span>
+          <select className="volt-sel" value={systemV} onChange={e=>setSystemV(+e.target.value)}>
+            <option value={12}>12V</option><option value={24}>24V</option><option value={48}>48V</option>
+          </select>
+          <div style={{width:1,height:20,background:'rgba(255,255,255,.15)',margin:'0 2px'}}/>
+          <button className="btn btn-outline" title="JSONで保存" onClick={saveJSON}>💾 保存</button>
+          <label className="btn btn-outline" style={{cursor:'pointer'}} title="JSONを読み込む">
+            📂 読込<input ref={loadRef} type="file" accept=".json" style={{display:'none'}} onChange={loadJSON}/>
+          </label>
+          <button className="btn btn-outline" title="PNG画像で出力" onClick={exportPNG}>📤 PNG出力</button>
+          <button className="btn btn-outline" title="PDFで出力" onClick={exportPDF}>📤 PDF出力</button>
+          <div style={{width:1,height:20,background:'rgba(255,255,255,.15)',margin:'0 2px'}}/>
+          <button className="btn btn-outline" onClick={clearAll}>🗑</button>
+          {!isDeployed&&<button className="btn btn-outline" onClick={()=>setShowSett(true)}>⚙</button>}
+          <button className="btn btn-check" onClick={()=>setShowCheck(true)}
+            style={{display:'flex',alignItems:'center',gap:5}}>
+            🔍 チェック
+            {checkBadge&&<span style={{background:'rgba(255,255,255,.2)',borderRadius:4,padding:'1px 5px',fontSize:11,fontWeight:700}}>{checkBadge.text}</span>}
+          </button>
+          <button className="btn btn-primary" onClick={()=>setShowSim(true)}>🔬 試算</button>
+          <button className="btn btn-success" onClick={()=>setShowBOM(true)}>📋 部品一覧</button>
+        </div>
+      </div>
+
+      <div className="body">
+        {/* モバイル用パレット開閉 */}
+        <button className="mobile-toggle pal-tog" onClick={()=>setPalOpen(v=>!v)}>{palOpen?'✕':'☰ 部品'}</button>
+        {/* パネルが開いている時だけ閉じる×ボタンを表示（要素タップで自動展開するため設定ボタンは不要） */}
+        {panOpen&&<button className="mobile-toggle pan-tog" onClick={()=>setPanOpen(false)}>✕</button>}
+        {/* バックドロップ */}
+        <div className={`modal-backdrop${palOpen||panOpen?' show':''}`} onClick={()=>{setPalOpen(false);setPanOpen(false);}}/>
+        <Palette open={palOpen} onClose={()=>setPalOpen(false)}
+          onTapPlace={type=>{
+            // タッチ操作用：パレットアイテムをタップ → キャンバス中央付近に配置（重なり回避）
+            const rect=canvasRef.current.getBoundingClientRect();
+            const d=COMP[type];
+            const wantX=Math.max(10,rect.width/2-d.w/2);
+            const wantY=Math.max(10,rect.height/2-d.h/2);
+            const{x,y}=findNonOverlapPos(wantX,wantY,d.w,d.h);
+            const newNode={id:uid(),type,x,y,props:{...d.defaultProps},portPositions:{}};
+            const newNodes=[...nodesRef.current,newNode];
+            setNodes(newNodes);
+            setSelected({type:'node',id:newNode.id});
+            pushHist(newNodes,connsRef.current);
+            // モバイル: 配置直後に設定パネルを自動展開
+            if(window.innerWidth<=700) setTimeout(()=>openPanelForNode(newNode.id),100);
+            showToast('配置しました');
+          }}/>
+        <div className="cvs-wrap" ref={canvasRef}
+          onDragOver={onDragOver} onDrop={onDrop} onClick={onCanvasClick}
+          onWheel={onCanvasWheel}
+          onPointerDown={onCanvasPointerDown}
+          style={{cursor:ix?.mode==='drawWire'?'crosshair':ix?.mode==='movePort'?'none':'default',touchAction:'none'}}>
+          <div className="cvs-bg" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'0 0',width:'400%',height:'400%',position:'absolute',top:0,left:0}}/>
+          {/* ズームコントロール */}
+          <div style={{position:'absolute',right:10,bottom:10,zIndex:60,display:'flex',gap:4,background:'rgba(255,255,255,0.9)',borderRadius:8,padding:4,boxShadow:'0 2px 6px rgba(0,0,0,0.15)'}}>
+            <button className="btn btn-ghost btn-sm" style={{minWidth:28,padding:'4px 8px'}} title="縮小" onClick={()=>zoomAt(0.8,window.innerWidth/2,window.innerHeight/2)}>−</button>
+            <button className="btn btn-ghost btn-sm" style={{minWidth:40,padding:'4px 8px',fontSize:11}} title="100%に戻す" onClick={()=>{setZoom(1);setPan({x:0,y:0});}}>{Math.round(zoom*100)}%</button>
+            <button className="btn btn-ghost btn-sm" style={{minWidth:28,padding:'4px 8px'}} title="拡大" onClick={()=>zoomAt(1.25,window.innerWidth/2,window.innerHeight/2)}>+</button>
+          </div>
+          {/* ズーム/パン トランスフォーム層 */}
+          <div className="cvs-xform" style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'0 0'}}>
+
+          {/* SVG connections */}
+          <svg className="cvs-svg">
+            {(()=>{
+              // Pass 1: 全配線の経路と派生値を計算
+              const wireData=conns.map(c=>{
+                const pts=connPts(c,nodes); if(!pts) return null;
+                const cStyle=c.style||'ortho';
+                const r=buildPath(pts,cStyle,nodes,c.fromNode,c.toNode,c.fromPort,c.toPort,[]);
+                const derived=getDerivedWire(c,nodes,conns,systemV,r.segs);
+                // ショート回路チェック: 両端ポートの色から極性違反を検出
+                const fn=nodes.find(n=>n.id===c.fromNode);
+                const tn=nodes.find(n=>n.id===c.toNode);
+                const fpc=fn?getNodePorts(fn).find(p=>p.id===c.fromPort)?.color:null;
+                const tpc=tn?getNodePorts(tn).find(p=>p.id===c.toPort)?.color:null;
+                const isShort=(fpc==='#ef4444'&&tpc==='#374151')||(fpc==='#374151'&&tpc==='#ef4444');
+                const isMixed=(fpc==='#6366f1'&&(tpc==='#ef4444'||tpc==='#374151'))||(tpc==='#6366f1'&&(fpc==='#ef4444'||fpc==='#374151'));
+                const danger=isShort?'short':(isMixed?'mixed':null);
+                return{c,pts,path:r.path,segs:r.segs,warning:r.warning||!!danger,danger,derived};
+              }).filter(Boolean);
+              // Pass 2: ±ペア同期（両方 auto の時のみ大きい方に揃える）
+              applyPolaritySync(wireData,nodes,conns,systemV);
+              // Pass 3: 描画
+              return wireData.map(({c,path,segs,warning,danger,derived})=>{
+                const isSel=selected?.type==='conn'&&selected.id===c.id;
+                const cStyle2=c.style||'ortho';
+                // 再設定モード中：対象配線をグレー薄表示
+                const isReplacing=ix?.mode==='drawWire'&&ix.replaceConnId===c.id;
+                // ラベル位置: 実際に描画されている最長セグメントの中央（経路上に表示するため）
+                let mid;
+                if(segs&&segs.length>0){
+                  let bestS=segs[0], bestL=0;
+                  for(const s of segs){
+                    const l=Math.hypot(s.bx-s.ax,s.by-s.ay);
+                    if(l>bestL){bestL=l;bestS=s;}
+                  }
+                  mid={x:(bestS.ax+bestS.bx)/2,y:(bestS.ay+bestS.by)/2};
+                } else {
+                  mid=centroid(pts);
+                }
+                const col=c.wireColor||'#94a3b8';
+                const thick=c.customThick!=null?c.customThick:wireThick(derived.wireSize);
+                return(
+                  <g key={c.id} style={{touchAction:'none',userSelect:'none',WebkitUserSelect:'none',pointerEvents:isReplacing?'none':undefined}}
+                    onPointerDown={e=>{
+                      // 長押し検出（500ms）→ 再設定/削除/キャンセル 3択モーダル
+                      // 長押し成立まで段ドラッグも選択も発動しない
+                      const sx=e.clientX,sy=e.clientY;
+                      let longPressed=false;
+                      const tid=setTimeout(()=>{
+                        longPressed=true;
+                        wireLongPressRef.current=c.id; // クリック抑制フラグ
+                        const delWire=()=>{
+                          const newConns=connsRef.current.filter(x=>x.id!==c.id);
+                          setConns(newConns);
+                          pushHist(nodesRef.current,newConns);
+                          if(selected?.type==='conn'&&selected.id===c.id) setSelected(null);
+                        };
+                        const autoReset=()=>{
+                          // 端点はそのまま、中継点だけクリアして自動ルーティングに戻す
+                          const newConns=connsRef.current.map(x=>x.id===c.id?{...x,waypoints:[]}:x);
+                          setConns(newConns);
+                          pushHist(nodesRef.current,newConns);
+                          showToast('自動再設定しました（中継点をクリア）');
+                        };
+                        setConfirmDlg({
+                          title:'配線の操作',
+                          message:'この配線をどうしますか？（経路を手動で変更したい時は削除して引き直してください）',
+                          buttons:[
+                            {label:'キャンセル',outline:true,onClick:null},
+                            {label:'⚡ 自動で再設定',color:'#16a34a',onClick:autoReset},
+                            {label:'🗑 削除',color:'#dc2626',onClick:delWire},
+                          ]
+                        });
+                      },500);
+                      const cleanup=()=>{clearTimeout(tid);document.removeEventListener('pointerup',cleanup);document.removeEventListener('pointermove',onMv);if(!longPressed){onWireSegMouseDown(e,c.id);}};
+                      const onMv=ev=>{if(Math.abs(ev.clientX-sx)>6||Math.abs(ev.clientY-sy)>6){clearTimeout(tid);document.removeEventListener('pointermove',onMv);if(!longPressed){onWireSegMouseDown(e,c.id);}}};
+                      document.addEventListener('pointerup',cleanup,{once:true});
+                      document.addEventListener('pointermove',onMv);
+                    }}
+                    onClick={e=>{
+                      e.stopPropagation();
+                      // 長押し直後の click は抑制（誤操作防止）
+                      if(wireLongPressRef.current===c.id){wireLongPressRef.current=null;return;}
+                      setSelected({type:'conn',id:c.id});setPEN(null);
+                      if(window.innerWidth<=700) setPanOpen(true);
+                    }}
+                    onDoubleClick={e=>{
+                      e.stopPropagation();
+                      const delWire=()=>{
+                        const newConns=connsRef.current.filter(x=>x.id!==c.id);
+                        setConns(newConns);
+                        pushHist(nodesRef.current,newConns);
+                        if(selected?.type==='conn'&&selected.id===c.id) setSelected(null);
+                      };
+                      const autoReset=()=>{
+                        const newConns=connsRef.current.map(x=>x.id===c.id?{...x,waypoints:[]}:x);
+                        setConns(newConns);
+                        pushHist(nodesRef.current,newConns);
+                        showToast('自動再設定しました（中継点をクリア）');
+                      };
+                      setConfirmDlg({
+                        title:'配線の操作',
+                        message:'この配線をどうしますか？（経路を手動で変更したい時は削除して引き直してください）',
+                        buttons:[
+                          {label:'キャンセル',outline:true,onClick:null},
+                          {label:'⚡ 自動で再設定',color:'#16a34a',onClick:autoReset},
+                          {label:'🗑 削除',color:'#dc2626',onClick:delWire},
+                        ]
+                      });
+                    }}>
+                    {/* Hit area */}
+                    <path d={path} fill="none" stroke="transparent" strokeWidth={Math.max(14,thick+8)} style={{cursor:'move'}}/>
+                    {/* Selection glow */}
+                    {isSel&&<path d={path} fill="none" stroke="#3b82f6" strokeWidth={thick+8} strokeOpacity={0.18} style={{pointerEvents:'none'}}/>}
+                    {/* Warning halo (経路解決失敗・部品貫通の可能性、点滅) */}
+                    {warning&&<path d={path} fill="none" stroke="#ef4444" strokeWidth={thick+6} className="wire-warn-halo" style={{pointerEvents:'none'}}/>}
+                    {/* Main wire */}
+                    <path d={path} fill="none" stroke={isReplacing?'#94a3b8':(warning?'#ef4444':col)} strokeWidth={thick}
+                      strokeLinecap={(cStyle2==='ortho'||cStyle2==='click')?'square':'round'}
+                      strokeLinejoin={(cStyle2==='ortho'||cStyle2==='click')?'miter':'round'}
+                      strokeDasharray={isReplacing?'8 4':(warning?'10 6':undefined)}
+                      opacity={isReplacing?0.4:1}
+                      className={warning?'wire-warn':undefined}/>
+                    {/* Selection dash overlay */}
+                    {isSel&&<path d={path} fill="none" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="8 5" style={{pointerEvents:'none'}}/>}
+                    {/* Wire size label (派生値; 上書きがあれば上書き表示) */}
+                    {derived.wireSize&&<>
+                      <rect x={mid.x-26} y={mid.y-10} width={52} height={18} rx={4} fill="white" stroke={warning?'#ef4444':col} strokeWidth={1.5} fillOpacity={0.95}/>
+                      <text x={mid.x} y={mid.y+3.5} textAnchor="middle" fontSize={9} fill={isSel?'#3b82f6':(warning?'#ef4444':col)} fontWeight={700}>{danger==='short'?'⚡ショート ':danger==='mixed'?'⚡AC/DC混在 ':warning?'⚠ ':''}{derived.wireSize}</text>
+                    </>}
+                  </g>
+                );
+              });
+            })()}
+            {ghostLine&&(ghostLine.points
+              ?<>
+                <path d={clickPath(ghostLine.points).path} fill="none" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" opacity={0.7}/>
+                {ghostLine.points.slice(1,-1).map((p,i)=>(
+                  <circle key={i} cx={p.x} cy={p.y} r={4} fill="#3b82f6" stroke="white" strokeWidth={1.5}/>
+                ))}
+              </>
+              :<path d={buildPath([ghostLine.p1,ghostLine.p2],wireStyle).path} fill="none" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" opacity={0.7}/>
+            )}
+          </svg>
+
+          {/* Nodes */}
+          <div className="cvs-nodes">
+            {nodes.map(n=>(
+              <NodeEl key={n.id} node={n}
+                selected={selected?.type==='node'&&selected.id===n.id}
+                isPortEdit={portEditNode===n.id}
+                drawingWire={ix?.mode==='drawWire'?ix:null}
+                onMouseDown={onNodeMouseDown}
+                onPortMouseDown={onPortMouseDown}
+                onPortMouseUp={onPortMouseUp}
+                onResizeStart={onResizeMouseDown}
+                onDelete={id=>{
+                  const ns=nodesRef.current, cs=connsRef.current;
+                  const removeIds=cs.filter(c=>c.fromNode===id||c.toNode===id).map(c=>c.id);
+                  const nn=ns.filter(n=>n.id!==id);
+                  const nc=freezeRemainingWires(cs,ns,removeIds);
+                  setNodes(nn);setConns(nc);setSelected(null);setPEN(null);pushHist(nn,nc);
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Handles overlay */}
+          <div className="cvs-handles">
+            {selConn&&(()=>{
+              const pts=connPts(selConn,nodes); if(!pts) return null;
+              const elems=[];
+              pts.forEach((pt,i)=>{
+                if(i>0&&i<pts.length-1){
+                  elems.push(<div key={`wp-${i}`} className="wp-handle" style={{left:pt.x,top:pt.y,touchAction:'none'}}
+                    title="ドラッグ:移動 / ダブルクリック:削除"
+                    onPointerDown={e=>{e.stopPropagation();onBendMouseDown(e,selConn.id,i-1);}}
+                    onDoubleClick={e=>{e.stopPropagation();removeWaypoint(selConn.id,i-1);showToast('中継点を削除しました');}}/>);
+                }
+                if(i<pts.length-1){
+                  const nx=pts[i+1]; const mx=(pt.x+nx.x)/2,my=(pt.y+nx.y)/2;
+                  const dx=nx.x-pt.x, dy=nx.y-pt.y;
+                  const isH=Math.abs(dx)>=Math.abs(dy);
+                  // 配線の中央（クリックしやすい場所）と被らないよう垂直方向に20pxずらす
+                  const ox=mx+(isH?0:-22), oy=my+(isH?-22:0);
+                  elems.push(<div key={`add-${i}`} className="add-wp" style={{left:ox,top:oy}}
+                    title="クリックして中継点を追加"
+                    onClick={e=>{e.stopPropagation();addWaypoint(selConn.id,i,{x:mx,y:my});}}>+</div>);
+                }
+              });
+              return elems;
+            })()}
+            {edgeHighlight&&<div className="edge-hl" style={{position:'absolute',...edgeHighlight}}/>}
+            {portPreview&&(()=>{
+              const node=nodes.find(n=>n.id===portPreview.nodeId); if(!node) return null;
+              return<div className="port-ghost" style={{left:node.x+portPreview.px,top:node.y+portPreview.py,background:portPreviewColor}}/>;
+            })()}
+          </div>
+
+          {nodes.length===0&&(
+            <div className="empty">
+              <div className="empty-ico">⚡</div>
+              <div className="empty-t">サンプル構成から始める</div>
+              <div className="empty-s">代表的な構成を選んで読み込めます</div>
+              <div className="sample-grid">
+                {SAMPLES.map(s=>(
+                  <div key={s.key} className="sample-card" onClick={()=>loadSample(s)}>
+                    <div className="sample-card-title">{s.label}</div>
+                    <div className="sample-card-desc">{s.desc}</div>
+                    <div className="sample-card-spec">{s.spec}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="empty-s" style={{marginTop:16,fontSize:11.5}}>または、左のパレットから部品をドラッグして<br/>ゼロから配線図を作成できます</div>
+            </div>
+          )}
+          </div>{/* /cvs-xform */}
+        </div>
+
+        <PropPanel selected={selected} nodes={nodes} connections={conns} systemV={systemV} wireStyle={wireStyle}
+          portEditNode={portEditNode} setPEN={setPEN}
+          onUpdateNode={updateNode} onUpdateConn={updateConn} onDelSelected={delSelected} onResizeNode={resizeNode} onRotateNode={rotateNode} onChangeBusPortCount={changeBusPortCount}
+          open={panOpen}/>
+      </div>
+
+      {showCheck&&<CheckModal nodes={nodes} connections={conns} onClose={()=>setShowCheck(false)}/>}
+      {showSim&&<SimModal nodes={nodes} onClose={()=>setShowSim(false)}/>}
+      {showBOM&&<BOMModal nodes={nodes} connections={conns} affiliateTag={affTag} onClose={()=>setShowBOM(false)}/>}
+      {showSett&&!isDeployed&&<SettModal affiliateTag={affTag} onSave={v=>{setAffTag(v);localStorage.setItem('aff_tag',v);}} onClose={()=>setShowSett(false)}/>}
+      {toast&&<div className="toast">{toast}</div>}
+      {confirmDlg&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={()=>setConfirmDlg(null)}>
+          <div style={{background:'white',borderRadius:12,padding:'20px 24px',minWidth:280,maxWidth:'90vw',boxShadow:'0 10px 30px rgba(0,0,0,0.25)'}}
+            onClick={e=>e.stopPropagation()}>
+            {confirmDlg.title&&<div style={{fontSize:15,fontWeight:700,marginBottom:10,color:'#0f172a'}}>{confirmDlg.title}</div>}
+            <div style={{fontSize:14,color:'#334155',marginBottom:18,lineHeight:1.6}}>{confirmDlg.message}</div>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8,flexWrap:'wrap'}}>
+              {confirmDlg.buttons?confirmDlg.buttons.map((b,i)=>(
+                <button key={i} className={b.outline?'btn btn-outline':'btn btn-primary'}
+                  style={{padding:'6px 14px',...(b.color?{background:b.color,borderColor:b.color}:{})}}
+                  onClick={()=>{const fn=b.onClick;setConfirmDlg(null);if(fn)fn();}}>{b.label}</button>
+              )):<>
+                <button className="btn btn-outline" style={{padding
