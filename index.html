@@ -900,6 +900,8 @@ function amazonQuery(node){
 //  Helpers
 // ═══════════════════════════════════════════════════════════════
 let _gid=1; const uid=()=>String(_gid++);
+// ノード読み込み後に uid カウンターを既存IDより大きい値に更新（ID衝突防止）
+function bumpGid(nodes){if(!nodes)return;const mx=nodes.reduce((m,n)=>{const v=parseInt(n.id,10);return isNaN(v)?m:Math.max(m,v)},0);if(mx>=_gid)_gid=mx+1;}
 
 function snapToEdge(rawPx,rawPy,w,h){
   const cx=Math.max(0,Math.min(w,rawPx)), cy=Math.max(0,Math.min(h,rawPy));
@@ -2382,6 +2384,7 @@ function App(){
         if(d.nodes)setNodes(ns);
         if(d.conns)setConns(cs);
         if(d.systemV)setSystemV(d.systemV);
+        bumpGid(ns);
         // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
         setWireStyle('click');
         // Initialize history with the loaded state (so undo doesn't go past initial load)
@@ -2447,9 +2450,11 @@ function App(){
     r.onload=ev=>{
       try{
         const d=JSON.parse(ev.target.result);
-        if(d.nodes)setNodes(d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})));
+        const loadedNodes=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
+        if(d.nodes)setNodes(loadedNodes);
         if(d.conns)setConns(d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})));
         if(d.systemV)setSystemV(d.systemV);
+        bumpGid(loadedNodes);
         // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
         setWireStyle('click');
         setSelected(null); setPEN(null);
@@ -3022,6 +3027,7 @@ function App(){
     const data=sample.build();
     setNodes(data.nodes);
     setConns(data.conns);
+    bumpGid(data.nodes);
     setSelected(null); setPEN(null);
     setPan({x:0,y:0}); setZoom(1);
     pushHist(data.nodes,data.conns);
@@ -3438,18 +3444,4 @@ function App(){
                   style={{padding:'6px 14px',...(b.color?{background:b.color,borderColor:b.color}:{})}}
                   onClick={()=>{const fn=b.onClick;setConfirmDlg(null);if(fn)fn();}}>{b.label}</button>
               )):<>
-                <button className="btn btn-outline" style={{padding:'6px 14px'}} onClick={()=>setConfirmDlg(null)}>キャンセル</button>
-                <button className="btn btn-primary" style={{padding:'6px 14px'}} onClick={()=>{const fn=confirmDlg.onOk;setConfirmDlg(null);if(fn)fn();}}>OK</button>
-              </>
-            }
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
-</script>
-</body>
-</html>
+                <button className="btn btn-outline" style={{padding:'6px 14px'}} onClick={()=>setConfirmDlg(null)}>キャンセル</butt
