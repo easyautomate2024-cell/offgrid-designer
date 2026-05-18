@@ -740,7 +740,7 @@ const TOOL_AFF=[
 const WIRE_THUMB={icon:'🧵',color:'#0891b2',bg:'#cffafe'};
 // ────────────── サンプル構成（初期表示用プリセット）──────────────
 // 配線が重ならないよう、ノード位置と中継点（waypoints）を事前に最適化済み。
-const _wire=(id,fn,fp,tn,tp,color,waypoints)=>({id,fromNode:fn,fromPort:fp,toNode:tn,toPort:tp,amps:'',lenM:'',wireSize:'',wireColor:color,customThick:null,waypoints:waypoints||[]});
+const _wire=(id,fn,fp,tn,tp,color,waypoints,style)=>({id,fromNode:fn,fromPort:fp,toNode:tn,toPort:tp,amps:'',lenM:'',wireSize:'',wireColor:color,customThick:null,waypoints:waypoints||[],style:style||'click'});
 const RED='#ef4444',BLK='#1f2937',AC='#6366f1';
 const SAMPLES=[
   {
@@ -1671,7 +1671,7 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
     const fn=nodes.find(n=>n.id===conn.fromNode), tn=nodes.find(n=>n.id===conn.toNode);
     // 派生値を実経路から算出（PropPanel 内で再度 buildPath を呼んで segs を得る）
     const _pts=connPts(conn,nodes);
-    const _r=_pts?buildPath(_pts,conn.style||'ortho',nodes,conn.fromNode,conn.toNode,conn.fromPort,conn.toPort,[]):{segs:[]};
+    const _r=_pts?buildPath(_pts,conn.style||wireStyle||'click',nodes,conn.fromNode,conn.toNode,conn.fromPort,conn.toPort,[]):{segs:[]};
     let derived=getDerivedWire(conn,nodes,connections,systemV,_r.segs);
     const routeWarning=_r.warning===true;
     // ショート回路・極性違反の検出（リアルタイム警告）
@@ -1684,7 +1684,7 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
     let pairedWith=null;
     if(_partner){
       const pPts=connPts(_partner,nodes);
-      const pR=pPts?buildPath(pPts,_partner.style||'ortho',nodes,_partner.fromNode,_partner.toNode,_partner.fromPort,_partner.toPort,[]):{segs:[]};
+      const pR=pPts?buildPath(pPts,_partner.style||wireStyle||'click',nodes,_partner.fromNode,_partner.toNode,_partner.fromPort,_partner.toPort,[]):{segs:[]};
       const pDerived=getDerivedWire(_partner,nodes,connections,systemV,pR.segs);
       if(derived.sizeIsAuto&&pDerived.sizeIsAuto){
         const myMm2=WIRE_SIZES.find(s=>s.label===derived.wireSize)?.mm2||0;
@@ -3196,7 +3196,7 @@ function App(){
               // Pass 1: 全配線の経路と派生値を計算
               const wireData=conns.map(c=>{
                 const pts=connPts(c,nodes); if(!pts) return null;
-                const cStyle=c.style||'ortho';
+                const cStyle=c.style||wireStyle||'click';
                 const r=buildPath(pts,cStyle,nodes,c.fromNode,c.toNode,c.fromPort,c.toPort,[]);
                 const derived=getDerivedWire(c,nodes,conns,systemV,r.segs);
                 // ショート回路チェック: 両端ポートの色から極性違反を検出
@@ -3424,4 +3424,4 @@ function App(){
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+</html>
