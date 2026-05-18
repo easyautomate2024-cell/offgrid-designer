@@ -843,20 +843,21 @@ const SAMPLES=[
   },
 ];
 // ─────────────────────────────────────────────────────────────────
-// もしもアフィリエイト設定 (a_id: 1191967 / Amazon.co.jp)
+// Amazon リンク設定（アソシエイトタグはオプション）
 // ─────────────────────────────────────────────────────────────────
-const MOSHIMO_A_ID = '1191967';
-function moshimoUrl(amazonUrl){
-  return `https://af.moshimo.com/af/c/click?a_id=${MOSHIMO_A_ID}&p_id=170&pc_id=185&pl_id=4062&url=${encodeURIComponent(amazonUrl)}`;
-}
+// Amazon アソシエイトタグを設定するとアフィリエイトリンクになります
+// 例: 'yourname-22'  空文字のままだと通常の検索リンク
+const AMAZON_ASSOC_TAG = '';
 function affLink(q,tag,sort){
   // sort: undefined=おすすめ, 'price-asc-rank'=価格安い順, 'review-rank'=★高評価順
   const s=sort?`&s=${sort}`:'';
-  return moshimoUrl(`https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}${s}`);
+  const t=(tag||AMAZON_ASSOC_TAG)?`&tag=${encodeURIComponent(tag||AMAZON_ASSOC_TAG)}`:'';
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}${s}${t}`;
 }
 function affLinkPrime(q,tag){
   // Prime対応のみ表示
-  return moshimoUrl(`https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}&rh=p_85%3A467229071`);
+  const t=(tag||AMAZON_ASSOC_TAG)?`&tag=${encodeURIComponent(tag||AMAZON_ASSOC_TAG)}`:'';
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}&rh=p_85%3A467229071${t}`;
 }
 
 // ─────────────────────────────────────────────────────────────────
