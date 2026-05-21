@@ -773,10 +773,9 @@ const SAMPLES=[
     key:'camping',label:'🚐 キャンピングカー標準',
     desc:'発電・蓄電・インバーター・保護装置を組合せた一般的構成',
     spec:'10部品 / 13配線',
-    // ユーザー編集済み offgrid-design (4).json の座標をそのまま使用
     build:()=>({
       nodes:[
-        {id:'1',type:'solar_panel',x:79.37,y:45.40,
+        {id:'1',type:'solar_panel',x:79.37,y:45.4,
           props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},
           portPositions:{pos:{px:89.78,py:78},neg:{px:42.79,py:78}}},
         {id:'2',type:'mppt',x:300,y:130,
@@ -801,19 +800,19 @@ const SAMPLES=[
           props:{name:'DC機器',watts:60,voltage:12},portPositions:{}},
       ],
       conns:[
-        _wire('a','1','pos','2','solar_pos',RED),
         _wire('b','1','neg','2','solar_neg',BLK,[{x:123,y:181.87},{x:272,y:181.87},{x:272,y:182}]),
-        _wire('c','2','bat_pos','3','p0',RED,[{x:480,y:120},{x:562,y:120}]),
-        _wire('d','2','bat_neg','4','p0',BLK),
         _wire('e','5','pos','6','in',RED,[{x:164,y:344.44},{x:232,y:344.44},{x:232,y:346}]),
-        _wire('f','6','out','7','in',RED),
-        _wire('g','7','out','3','p3',RED,[{x:562,y:346}]),
-        _wire('h','5','neg','4','p3',BLK),
+        {id:'f',fromNode:'6',fromPort:'out',toNode:'7',toPort:'in',amps:'',lenM:'',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[],style:'click'},
+        {id:'g',fromNode:'7',fromPort:'out',toNode:'3',toPort:'p3',amps:'',lenM:'1',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[{x:562,y:346}],style:'click'},
         _wire('i','3','p4','8','dc_pos',RED,[{x:630,y:222}]),
         _wire('j','4','p2','8','dc_neg',BLK,[{x:690,y:255}]),
         _wire('k','8','ac_out','9','ac_in',AC),
-        _wire('l','3','p5','10','pos',RED),
         _wire('m','4','p5','10','neg',BLK),
+        _wire('12','2','bat_neg','4','p1',BLK,[{x:515.5,y:182},{x:515.5,y:388.5},{x:629,y:388.5}]),
+        _wire('13','5','neg','4','p0',BLK,[{x:124,y:404}]),
+        _wire('14','2','bat_pos','3','p0',RED,[{x:511.5,y:152},{x:511.5,y:119.5},{x:572.5,y:119.5}]),
+        _wire('15','1','pos','2','solar_pos',RED,[{x:169.37,y:152}]),
+        _wire('16','3','p5','10','pos',RED,[{x:690,y:204.5},{x:778,y:204.5},{x:778,y:440}]),
       ]
     })
   },
