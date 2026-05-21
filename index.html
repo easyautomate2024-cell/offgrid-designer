@@ -419,25 +419,28 @@ function traceThroughProtection(node,portId,conns,nodes,visited){
 // 配線全体の予想電流（バスバー考慮版）。両端から取得し、null 同士ならバスバー側の他配線を合計
 function calcWireAmps(fromN,fromPortId,toN,toPortId,conns,nodes,excludeConnId=null){
   // 保護デバイスは「通過する電流」を辿って取得（定格 amps ではなく実電流）
+  // トレースが失敗（電源側で終端）した場合は null のまま → バスバー側のフォールバックに任せる
   const isProtF=fromN&&(fromN.type==='fuse'||fromN.type==='switch'||fromN.type==='breaker');
   const isProtT=toN&&(toN.type==='fuse'||toN.type==='switch'||toN.type==='breaker');
   let aF, aT;
   if(isProtF){
     const v=new Set(); if(excludeConnId) v.add(excludeConnId);
-    const t=traceThroughProtection(fromN,fromPortId,conns,nodes,v);
-    aF=t!=null?t:expectedCurrentAt(fromN,fromPortId);
+    aF=traceThroughProtection(fromN,fromPortId,conns,nodes,v);
   } else aF=expectedCurrentAt(fromN,fromPortId);
   if(isProtT){
     const v=new Set(); if(excludeConnId) v.add(excludeConnId);
-    const t=traceThroughProtection(toN,toPortId,conns,nodes,v);
-    aT=t!=null?t:expectedCurrentAt(toN,toPortId);
+    aT=traceThroughProtection(toN,toPortId,conns,nodes,v);
   } else aT=expectedCurrentAt(toN,toPortId);
   if(aF!=null||aT!=null) return Math.max(aF||0,aT||0);
   // 両端不明 → バスバーの他配線を合計
   const fromIsBus=fromN&&(fromN.type==='bus_pos'||fromN.type==='bus_neg');
   const toIsBus=toN&&(toN.type==='bus_pos'||toN.type==='bus_neg');
   const busNode=fromIsBus?fromN:(toIsBus?toN:null);
-  return sumBusBarCurrent(busNode,conns,nodes,excludeConnId);
+  if(busNode) return sumBusBarCurrent(busNode,conns,nodes,excludeConnId);
+  // 最終フォールバック: 保護デバイスの定格 amps
+  if(isProtF) return +(fromN.props?.amps)||0;
+  if(isProtT) return +(toN.props?.amps)||0;
+  return 0;
 }
 // 2ポート間のおおよその配線長(m)。ピクセル距離 100px=1m を目安、最小1m。
 // スケール: 機器寸法と同じ 1cm = 10px → 1m = 1000px
