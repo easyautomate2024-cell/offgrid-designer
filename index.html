@@ -749,19 +749,24 @@ const SAMPLES=[
     spec:'4部品 / 5配線',
     build:()=>({
       nodes:[
-        {id:'1',type:'solar_panel',x:187.5,y:105,props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
-        {id:'2',type:'mppt',x:320,y:200,rotation:90,props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{}},
-        {id:'3',type:'fuse',x:458.5,y:380,props:{name:'バッテリーヒューズ',amps:50,type:'ANL'},portPositions:{in:{px:92,py:30.5},out:{px:0,py:27}}},
-        {id:'4',type:'battery',x:635,y:388.5,props:{name:'バッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{pos:{px:0,py:22},neg:{px:0,py:60}}},
+        {id:'1',type:'solar_panel',x:187.5,y:105,
+          props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
+        {id:'2',type:'mppt',x:320,y:200,rotation:90,
+          props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{}},
+        {id:'3',type:'fuse',x:458.5,y:380,
+          props:{name:'バッテリーヒューズ',amps:50,type:'ANL'},
+          portPositions:{in:{px:92,py:30.5},out:{px:0,py:27}}},
+        {id:'4',type:'battery',x:635,y:388.5,
+          props:{name:'バッテリー',voltage:12,ah:100,type:'LiFePO4'},
+          portPositions:{pos:{px:0,py:22},neg:{px:0,py:60}}},
       ],
       conns:[
         _wire('a','1','pos','2','solar_pos',RED),
         _wire('b','1','neg','2','solar_neg',BLK),
+        _wire('c','2','bat_pos','3','out',RED),
         _wire('d','3','in','4','pos',RED),
-        _wire('e','2','bat_neg','4','neg',BLK),
-        {id:'c',fromNode:'2',fromPort:'bat_pos',toNode:'3',toPort:'out',amps:'',lenM:'',wireSize:'',wireColor:RED,customThick:null,waypoints:[],style:'click'},
-      ],
-      systemV:12,wireStyle:'click'
+        _wire('5','2','bat_neg','4','neg',BLK,[{x:400,y:453}]),
+      ]
     })
   },
   {
