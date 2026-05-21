@@ -843,8 +843,8 @@ const SAMPLES=[
       conns:[
         _wire('b','1','neg','2','solar_neg',BLK,[{x:123,y:181.87},{x:272,y:181.87},{x:272,y:182}]),
         _wire('e','5','pos','6','in',RED,[{x:164,y:344.44},{x:232,y:344.44},{x:232,y:346}]),
-        _wire('f','6','out','7','in',RED),
-        _wire('g','7','out','3','p3',RED,[{x:562,y:346}]),
+        {id:'f',fromNode:'6',fromPort:'out',toNode:'7',toPort:'in',amps:'',lenM:'',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[],style:'click'},
+        {id:'g',fromNode:'7',fromPort:'out',toNode:'3',toPort:'p3',amps:'',lenM:'1',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[{x:562,y:346}],style:'click'},
         _wire('i','3','p4','8','dc_pos',RED,[{x:630,y:222}]),
         _wire('j','4','p2','8','dc_neg',BLK,[{x:690,y:255}]),
         _wire('k','8','ac_out','9','ac_in',AC),
