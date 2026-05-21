@@ -390,10 +390,48 @@ function sumBusBarCurrent(busNode,conns,nodes,excludeConnId=null){
   }
   return total;
 }
+// 保護デバイス（fuse/switch/breaker）を「通過電流」で評価するため、反対端子側の先を辿る
+// 終点で bus が見つかればその集計、他機器なら expectedCurrentAt を返す。チェーンも再帰追跡。
+function traceThroughProtection(node,portId,conns,nodes,visited){
+  if(!node) return null;
+  const isProt=node.type==='fuse'||node.type==='switch'||node.type==='breaker';
+  if(!isProt) return null;
+  const otherPort=portId==='in'?'out':(portId==='out'?'in':null);
+  if(!otherPort) return null;
+  for(const c of conns){
+    if(visited.has(c.id)) continue;
+    let beyondId,beyondPort;
+    if(c.fromNode===node.id&&c.fromPort===otherPort){beyondId=c.toNode;beyondPort=c.toPort;}
+    else if(c.toNode===node.id&&c.toPort===otherPort){beyondId=c.fromNode;beyondPort=c.fromPort;}
+    else continue;
+    const beyond=nodes.find(n=>n.id===beyondId); if(!beyond) continue;
+    visited.add(c.id);
+    if(beyond.type==='bus_pos'||beyond.type==='bus_neg'||beyond.type==='bus_bar'){
+      return sumBusBarCurrent(beyond,conns,nodes,c.id);
+    }
+    if(beyond.type==='fuse'||beyond.type==='switch'||beyond.type==='breaker'){
+      return traceThroughProtection(beyond,beyondPort,conns,nodes,visited);
+    }
+    return expectedCurrentAt(beyond,beyondPort);
+  }
+  return null;
+}
 // 配線全体の予想電流（バスバー考慮版）。両端から取得し、null 同士ならバスバー側の他配線を合計
 function calcWireAmps(fromN,fromPortId,toN,toPortId,conns,nodes,excludeConnId=null){
-  const aF=expectedCurrentAt(fromN,fromPortId);
-  const aT=expectedCurrentAt(toN,toPortId);
+  // 保護デバイスは「通過する電流」を辿って取得（定格 amps ではなく実電流）
+  const isProtF=fromN&&(fromN.type==='fuse'||fromN.type==='switch'||fromN.type==='breaker');
+  const isProtT=toN&&(toN.type==='fuse'||toN.type==='switch'||toN.type==='breaker');
+  let aF, aT;
+  if(isProtF){
+    const v=new Set(); if(excludeConnId) v.add(excludeConnId);
+    const t=traceThroughProtection(fromN,fromPortId,conns,nodes,v);
+    aF=t!=null?t:expectedCurrentAt(fromN,fromPortId);
+  } else aF=expectedCurrentAt(fromN,fromPortId);
+  if(isProtT){
+    const v=new Set(); if(excludeConnId) v.add(excludeConnId);
+    const t=traceThroughProtection(toN,toPortId,conns,nodes,v);
+    aT=t!=null?t:expectedCurrentAt(toN,toPortId);
+  } else aT=expectedCurrentAt(toN,toPortId);
   if(aF!=null||aT!=null) return Math.max(aF||0,aT||0);
   // 両端不明 → バスバーの他配線を合計
   const fromIsBus=fromN&&(fromN.type==='bus_pos'||fromN.type==='bus_neg');
@@ -802,8 +840,8 @@ const SAMPLES=[
       conns:[
         _wire('b','1','neg','2','solar_neg',BLK,[{x:123,y:181.87},{x:272,y:181.87},{x:272,y:182}]),
         _wire('e','5','pos','6','in',RED,[{x:164,y:344.44},{x:232,y:344.44},{x:232,y:346}]),
-        {id:'f',fromNode:'6',fromPort:'out',toNode:'7',toPort:'in',amps:'',lenM:'',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[],style:'click'},
-        {id:'g',fromNode:'7',fromPort:'out',toNode:'3',toPort:'p3',amps:'',lenM:'1',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[{x:562,y:346}],style:'click'},
+        _wire('f','6','out','7','in',RED),
+        _wire('g','7','out','3','p3',RED,[{x:562,y:346}]),
         _wire('i','3','p4','8','dc_pos',RED,[{x:630,y:222}]),
         _wire('j','4','p2','8','dc_neg',BLK,[{x:690,y:255}]),
         _wire('k','8','ac_out','9','ac_in',AC),
