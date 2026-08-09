@@ -123,6 +123,20 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e
 .mttl{font-size:15px;font-weight:700;flex:1}
 .mbody{flex:1;overflow-y:auto;padding:18px}
 .mfoot{padding:12px 18px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:8px;flex-wrap:wrap}
+/* 設計レビュー: タブ */
+.rev-tabs{display:flex;gap:4px;flex:1;overflow-x:auto}
+.rev-tab{border:none;background:transparent;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.rev-tab:hover{background:#f1f5f9}
+.rev-tab.on{background:#eef2ff;color:#4338ca}
+.rev-badge{background:#f59e0b;color:#fff;border-radius:999px;padding:0 6px;font-size:10.5px;font-weight:700;line-height:16px;min-width:16px;text-align:center}
+.rev-badge.err{background:#ef4444}
+/* ファイルメニュー */
+.file-menu-wrap{position:relative}
+.file-menu-catch{position:fixed;inset:0;z-index:180}
+.file-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:190;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:190px;padding:6px;display:flex;flex-direction:column}
+.file-menu button,.file-menu label{display:block;width:100%;text-align:left;border:none;background:transparent;padding:9px 12px;font-size:13px;color:#0f172a;border-radius:7px;cursor:pointer;font-weight:500}
+.file-menu button:hover,.file-menu label:hover{background:#f1f5f9}
+.file-menu-sep{height:1px;background:#f1f5f9;margin:5px 4px}
 .bom-tbl{width:100%;border-collapse:collapse}
 .bom-tbl th{background:#f8fafc;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;padding:7px 11px;text-align:left;border-bottom:2px solid #e2e8f0;white-space:nowrap}
 .bom-tbl td{padding:9px 11px;border-bottom:1px solid #f1f5f9;font-size:12.5px;vertical-align:middle}
@@ -1938,7 +1952,7 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
 // ═══════════════════════════════════════════════════════════════
 //  Check Modal
 // ═══════════════════════════════════════════════════════════════
-function CheckModal({nodes,connections,onClose}){
+function CheckModal({nodes,connections,onClose,embedded}){
   const results=useMemo(()=>runChecks(nodes,connections),[nodes,connections]);
   const errCnt=results.filter(r=>r.level==='error').length;
   const warnCnt=results.filter(r=>r.level==='warn').length;
@@ -1954,13 +1968,7 @@ function CheckModal({nodes,connections,onClose}){
   // Group by category
   const cats=[...new Set(results.map(r=>r.cat))].filter(Boolean);
 
-  return(
-    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal" style={{maxWidth:600}}>
-        <div className="mhd">
-          <div className="mttl">🔍 電気チェック結果</div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
-        </div>
+  const inner=(<>
         <div className="mbody">
           <div className={`check-summary ${summary.cls}`}>
             <span style={{fontSize:20}}>{summary.icon}</span>
@@ -2004,6 +2012,16 @@ function CheckModal({nodes,connections,onClose}){
           <span style={{fontSize:11,color:'#94a3b8'}}>部品数: {nodes.length}　配線数: {connections.length}</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
         </div>
+  </>);
+  if(embedded) return inner;
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:600}}>
+        <div className="mhd">
+          <div className="mttl">🔍 電気チェック結果</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        {inner}
       </div>
     </div>
   );
@@ -2012,7 +2030,7 @@ function CheckModal({nodes,connections,onClose}){
 // ═══════════════════════════════════════════════════════════════
 //  Simulation Modal
 // ═══════════════════════════════════════════════════════════════
-function SimModal({nodes,onClose}){
+function SimModal({nodes,onClose,embedded}){
   // 入力パラメータ
   const [sunHours,setSunHours]=useState(()=>+(localStorage.getItem('sim_sun')||4));
   const [dod,setDod]=useState(()=>+(localStorage.getItem('sim_dod')||80));
@@ -2066,10 +2084,7 @@ function SimModal({nodes,onClose}){
     if(remHrs>=24) return{val:(days+1).toString(),unit:'日'};
     return{val:`${days}日${remHrs}`,unit:'時間'};
   };
-  return(
-    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal">
-        <div className="mhd"><div className="mttl">🔬 設計シミュレーション</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+  const inner=(<>
         <div className="mbody">
           {nodes.length===0?<div style={{textAlign:'center',color:'#94a3b8',padding:48}}>キャンバスに部品を配置してください</div>:<>
             {/* 主要指標 */}
@@ -2207,6 +2222,13 @@ function SimModal({nodes,onClose}){
           <span style={{fontSize:11,color:'#94a3b8'}}>※ あくまで概算。実環境では天候・温度・経年劣化等で変動します</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
         </div>
+  </>);
+  if(embedded) return inner;
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal">
+        <div className="mhd"><div className="mttl">🔬 設計シミュレーション</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        {inner}
       </div>
     </div>
   );
@@ -2215,7 +2237,7 @@ function SimModal({nodes,onClose}){
 // ═══════════════════════════════════════════════════════════════
 //  BOM Modal
 // ═══════════════════════════════════════════════════════════════
-function BOMModal({nodes,connections,affiliateTag,onClose}){
+function BOMModal({nodes,connections,affiliateTag,onClose,embedded}){
   // 容量・仕様別にグループ化（同じ部品でも 100Ah と 200Ah は別行）
   const tally=useMemo(()=>{const m={};nodes.forEach(n=>{const d=COMP[n.type];const q=amazonQuery(n);const k=`${n.type}|${q}`;if(!m[k])m[k]={type:n.type,d,query:q,count:0,nodes:[]};m[k].count++;m[k].nodes.push(n);});return Object.values(m);},[nodes]);
   const wireTally=useMemo(()=>{const m={};connections.forEach(c=>{const d=getDerivedWire(c,nodes,connections,12,null);if(d.wireSize)m[d.wireSize]=(m[d.wireSize]||0)+1;});return Object.entries(m).map(([s,n])=>({size:s,cnt:n}));},[connections,nodes]);
@@ -2248,10 +2270,7 @@ function BOMModal({nodes,connections,affiliateTag,onClose}){
       setTimeout(()=>window.open(affLink(q,affiliateTag),'_blank','noopener'),i*100);
     });
   };
-  return(
-    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="modal">
-        <div className="mhd"><div className="mttl">📋 部品一覧 &amp; アフィリエイトリンク</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+  const inner=(<>
         <div className="mbody">
           {tally.length===0?<div style={{textAlign:'center',color:'#94a3b8',padding:48}}>キャンバスに部品を配置してください</div>:<>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -2319,6 +2338,45 @@ function BOMModal({nodes,connections,affiliateTag,onClose}){
             <button className="btn btn-ghost btn-sm" onClick={onClose}>閉じる</button>
           </div>
         </div>
+  </>);
+  if(embedded) return inner;
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal">
+        <div className="mhd"><div className="mttl">📋 部品一覧 &amp; アフィリエイトリンク</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        {inner}
+      </div>
+    </div>
+  );
+}
+// チェック / 試算 / 部品一覧 を1つのモーダルにタブ統合した「設計レビュー」
+function ReviewModal({nodes,connections,affiliateTag,initialTab='check',onClose}){
+  const[tab,setTab]=useState(initialTab);
+  const badge=useMemo(()=>{
+    const r=runChecks(nodes,connections);
+    const e=r.filter(x=>x.level==='error').length;
+    const w=r.filter(x=>x.level==='warn').length;
+    return e+w>0?{n:e+w,err:e>0}:null;
+  },[nodes,connections]);
+  const TABS=[
+    {k:'check',label:<>🔍 チェック{badge&&<span className={`rev-badge${badge.err?' err':''}`}>{badge.n}</span>}</>},
+    {k:'sim',label:'🔬 試算'},
+    {k:'bom',label:'📋 部品一覧'},
+  ];
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal">
+        <div className="mhd">
+          <div className="rev-tabs">
+            {TABS.map(t=>(
+              <button key={t.k} className={`rev-tab${tab===t.k?' on':''}`} onClick={()=>setTab(t.k)}>{t.label}</button>
+            ))}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+        {tab==='check'&&<CheckModal nodes={nodes} connections={connections} onClose={onClose} embedded/>}
+        {tab==='sim'&&<SimModal nodes={nodes} onClose={onClose} embedded/>}
+        {tab==='bom'&&<BOMModal nodes={nodes} connections={connections} affiliateTag={affiliateTag} onClose={onClose} embedded/>}
       </div>
     </div>
   );
@@ -2344,10 +2402,9 @@ function App(){
   const wireLongPressRef=React.useRef(null);
   const[portPreview,setPortPrev]=useState(null);
   const[ghostPos,setGhost]=useState(null);
-  const[showBOM,setShowBOM]=useState(false);
+  const[review,setReview]=useState(null);      // 設計レビューモーダル: null | 'check' | 'sim' | 'bom'
+  const[fileMenu,setFileMenu]=useState(false); // ファイルメニュー開閉
   const[showSett,setShowSett]=useState(false);
-  const[showCheck,setShowCheck]=useState(false);
-  const[showSim,setShowSim]=useState(false);
   const[palOpen,setPalOpen]=useState(false);   // モバイル用パレット開閉
   const[panOpen,setPanOpen]=useState(false);   // モバイル用右パネル開閉
   const[systemV,setSystemV]=useState(12);
@@ -3226,22 +3283,29 @@ function App(){
             <option value={12}>12V</option><option value={24}>24V</option><option value={48}>48V</option>
           </select>
           <div style={{width:1,height:20,background:'rgba(255,255,255,.15)',margin:'0 2px'}}/>
-          <button className="btn btn-outline" title="JSONで保存" onClick={saveJSON}>💾 保存</button>
-          <label className="btn btn-outline" style={{cursor:'pointer'}} title="JSONを読み込む">
-            📂 読込<input ref={loadRef} type="file" accept=".json" style={{display:'none'}} onChange={loadJSON}/>
-          </label>
-          <button className="btn btn-outline" title="PNG画像で出力" onClick={exportPNG}>📤 PNG出力</button>
-          <button className="btn btn-outline" title="PDFで出力" onClick={exportPDF}>📤 PDF出力</button>
-          <div style={{width:1,height:20,background:'rgba(255,255,255,.15)',margin:'0 2px'}}/>
-          <button className="btn btn-outline" onClick={clearAll}>🗑</button>
-          {!isDeployed&&<button className="btn btn-outline" onClick={()=>setShowSett(true)}>⚙</button>}
-          <button className="btn btn-check" onClick={()=>setShowCheck(true)}
+          <div className="file-menu-wrap">
+            <button className="btn btn-outline" onClick={()=>setFileMenu(v=>!v)}>📁 ファイル ▾</button>
+            {fileMenu&&<>
+              <div className="file-menu-catch" onClick={()=>setFileMenu(false)}/>
+              <div className="file-menu">
+                <button onClick={()=>{setFileMenu(false);saveJSON();}}>💾 JSONで保存</button>
+                <label style={{cursor:'pointer'}}>
+                  📂 読込<input ref={loadRef} type="file" accept=".json" style={{display:'none'}} onChange={e=>{setFileMenu(false);loadJSON(e);}}/>
+                </label>
+                <button onClick={()=>{setFileMenu(false);exportPNG();}}>📤 PNG出力</button>
+                <button onClick={()=>{setFileMenu(false);exportPDF();}}>📤 PDF出力</button>
+                <div className="file-menu-sep"/>
+                <button onClick={()=>{setFileMenu(false);clearAll();}}>🗑 キャンバスをクリア</button>
+                {!isDeployed&&<button onClick={()=>{setFileMenu(false);setShowSett(true);}}>⚙ 設定</button>}
+              </div>
+            </>}
+          </div>
+          <button className="btn btn-check" onClick={()=>setReview('check')}
             style={{display:'flex',alignItems:'center',gap:5}}>
-            🔍 チェック
+            🔍 設計レビュー
             {checkBadge&&<span style={{background:'rgba(255,255,255,.2)',borderRadius:4,padding:'1px 5px',fontSize:11,fontWeight:700}}>{checkBadge.text}</span>}
           </button>
-          <button className="btn btn-primary" onClick={()=>setShowSim(true)}>🔬 試算</button>
-          <button className="btn btn-success" onClick={()=>setShowBOM(true)}>📋 部品一覧</button>
+          <button className="btn btn-success" onClick={()=>setReview('bom')}>📋 部品一覧</button>
         </div>
       </div>
 
@@ -3486,9 +3550,7 @@ function App(){
           open={panOpen}/>
       </div>
 
-      {showCheck&&<CheckModal nodes={nodes} connections={conns} onClose={()=>setShowCheck(false)}/>}
-      {showSim&&<SimModal nodes={nodes} onClose={()=>setShowSim(false)}/>}
-      {showBOM&&<BOMModal nodes={nodes} connections={conns} affiliateTag={affTag} onClose={()=>setShowBOM(false)}/>}
+      {review&&<ReviewModal nodes={nodes} connections={conns} affiliateTag={affTag} initialTab={review} onClose={()=>setReview(null)}/>}
       {showSett&&!isDeployed&&<SettModal affiliateTag={affTag} onSave={v=>{setAffTag(v);localStorage.setItem('aff_tag',v);}} onClose={()=>setShowSett(false)}/>}
       {toast&&<div className="toast">{toast}</div>}
       {confirmDlg&&(
