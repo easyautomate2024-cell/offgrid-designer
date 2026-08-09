@@ -922,8 +922,8 @@ const SAMPLES=[
         {id:'3',type:'dc_dc',x:500,y:80,props:{name:'走行充電器(DC-DC)',inputV:12,outputV:12,maxA:30},portPositions:{}},
         {id:'4',type:'fuse',x:740,y:76,props:{name:'ヒューズ(出力側)',amps:50,type:'ANL'},portPositions:{}},
         {id:'5',type:'battery',x:960,y:80,rotation:180,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{}},
-        {id:'6',type:'inverter',x:950,y:300,props:{name:'インバーター',watts:500,type:'正弦波',inputV:12},portPositions:{}},
-        {id:'7',type:'ac_load',x:1180,y:320,props:{name:'AC機器',watts:300},portPositions:{}},
+        {id:'6',type:'inverter',x:940,y:300,props:{name:'インバーター',watts:500,type:'正弦波',inputV:12},portPositions:{}},
+        {id:'7',type:'ac_load',x:1240,y:320,props:{name:'AC機器',watts:300},portPositions:{}},
       ],
       conns:[
         _wire('a','1','pos','2','in',RED),
@@ -931,9 +931,11 @@ const SAMPLES=[
         _wire('c','1','neg','3','in_neg',BLK),
         _wire('d','3','out_pos','4','in',RED),
         _wire('e','4','out','5','pos',RED),
-        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:210},{x:915,y:210}]),
-        _wire('g','5','pos','6','dc_pos',RED),
-        _wire('h','5','neg','6','dc_neg',BLK,[{x:880,y:250}]),
+        // マイナスは上ルートで迂回（プラス系の y=102 ラインと交差させない）
+        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:40},{x:930,y:40}]),
+        // バッテリー→インバーターは x=920(赤) / x=880(黒) の平行コリドーで下ろす
+        _wire('g','5','pos','6','dc_pos',RED,[{x:920,y:230}]),
+        _wire('h','5','neg','6','dc_neg',BLK,[{x:880,y:230}]),
         _wire('i','6','ac_out','7','ac_in',AC),
       ]
     })
