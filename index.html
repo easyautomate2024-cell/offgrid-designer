@@ -871,39 +871,29 @@ const SAMPLES=[
     spec:'9部品 / 12配線',
     build:()=>({
       nodes:[
-        {id:'1',type:'solar_panel',x:646.416148089549,y:-0.20476698060721787,
-          props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
-        {id:'2',type:'mppt',x:849.2973936429834,y:111.51057671609831,rotation:90,
-          props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},
-          portPositions:{bat_neg:{px:158,py:18.58093759996325},bat_pos:{px:158,py:48.507194752618716},load_neg:{px:158,py:83.03749146722112},load_pos:{px:158,py:112.38824367463326}}},
-        {id:'3',type:'shore_power',x:1259.3519725120448,y:696.0487969714974,rotation:180,nodeW:87.56,nodeH:121.94,
-          props:{name:'外部電源',voltage:100},portPositions:{}},
-        {id:'4',type:'charger',x:1038.9298624746316,y:708.1859668910862,rotation:180,
-          props:{name:'AC充電器',inputAC:100,outputV:12,maxA:20},portPositions:{}},
-        {id:'5',type:'fuse',x:904.7485889249199,y:522.471007381956,rotation:270,nodeW:66.06417054084761,nodeH:36,
-          props:{name:'メインヒューズ',amps:150,type:'ANL'},portPositions:{}},
-        {id:'6',type:'battery',x:898.6350105678065,y:616.6422755460769,rotation:270,
-          props:{name:'バッテリー',voltage:12,ah:200,type:'LiFePO4'},portPositions:{}},
-        {id:'7',type:'inverter',x:1096.4441570288893,y:327.8742923435309,
-          props:{name:'インバーター',watts:1500,type:'正弦波',inputV:12},portPositions:{}},
-        {id:'11',type:'bus_pos',x:856.6481631383836,y:408.3544513033287,rotation:90,nodeW:108.83045744404393,nodeH:47.69027257697542,
-          props:{name:'バスバー (+)',maxA:200,portCount:6},portPositions:{}},
-        {id:'12',type:'bus_neg',x:975.2640673983104,y:414.68063286385814,rotation:90,nodeW:98.814003306539,nodeH:45.05436359342161,
-          props:{name:'バスバー (−)',maxA:200,portCount:6},portPositions:{}},
+        {id:'1',type:'solar_panel',x:261.41847787662783,y:-5.5625874408268,props:{name:'ソーラーパネル',watts:200,voc:24.3,isc:8.7},portPositions:{}},
+        {id:'2',type:'mppt',x:427.5603831314137,y:87.01768318366595,rotation:90,props:{name:'MPPTコントローラー',maxA:40,maxVoltage:100},portPositions:{bat_neg:{px:158,py:18.58093759996325},bat_pos:{px:158,py:48.507194752618716},load_neg:{px:158,py:83.03749146722112},load_pos:{px:158,py:112.38824367463326}}},
+        {id:'3',type:'shore_power',x:66.37443977704531,y:289.72127785162974,rotation:0,nodeW:87.56,nodeH:121.94,props:{name:'外部電源',voltage:100},portPositions:{}},
+        {id:'4',type:'charger',x:251.26258462426,y:307.6750192866552,rotation:0,props:{name:'AC充電器',inputAC:100,outputV:12,maxA:20},portPositions:{dc_pos:{px:132,py:68.33847801368489},dc_neg:{px:132,py:28.272610213541952}}},
+        {id:'5',type:'fuse',x:279.2780526664837,y:481.6397366589246,rotation:0,nodeW:66.06417054084761,nodeH:36,props:{name:'メインヒューズ',amps:150,type:'ANL'},portPositions:{}},
+        {id:'6',type:'battery',x:70.0320518118485,y:479.5051917057043,rotation:0,props:{name:'バッテリー',voltage:12,ah:200,type:'LiFePO4'},portPositions:{}},
+        {id:'7',type:'inverter',x:649.4488500619988,y:380.68709402283815,props:{name:'インバーター',watts:1500,type:'正弦波',inputV:12},portPositions:{}},
+        {id:'11',type:'bus_pos',x:442.56518185569894,y:414.4776746864368,rotation:90,nodeW:108.83045744404393,nodeH:47.69027257697542,props:{name:'バスバー (+)',maxA:200,portCount:6},portPositions:{}},
+        {id:'12',type:'bus_neg',x:551.9962510409637,y:418.5076474783007,rotation:90,nodeW:98.814003306539,nodeH:45.05436359342161,props:{name:'バスバー (−)',maxA:200,portCount:6},portPositions:{}},
       ],
       conns:[
-        _wire('a','1','pos','2','solar_pos',RED),
-        _wire('b','1','neg','2','solar_neg',BLK),
-        _wire('c','3','ac_out','4','ac_in',AC),
-        {id:'19',fromNode:'11',fromPort:'p2',toNode:'5',toPort:'out',amps:'',lenM:'',wireSize:'60mm²',wireColor:RED,customThick:null,waypoints:[{x:923.4123897818149,y:499.3544513033287}],style:'click'},
-        _wire('20','5','in','6','pos',RED),
-        _wire('21','6','neg','12','p5',BLK,[{x:958.6350105678065,y:498.0670550597481}]),
-        _wire('23','7','dc_pos','11','p0',RED,[{x:906.9045993052005,y:351.8742923435309}]),
-        _wire('28','7','dc_neg','12','p1',BLK,[{x:1069.9245483685297,y:382.8742923435309},{x:1069.9245483685297,y:465.6916102730735}]),
-        _wire('30','4','dc_pos','11','p5',RED,[{x:834.9985190537017,y:663.9625025686283},{x:834.9985190537017,y:503.61467999475434}]),
-        _wire('31','12','p2','4','dc_neg',BLK,[{x:1020.2640673983104,y:745.8765312844298}]),
-        _wire('32','2','bat_pos','11','p1',RED),
-        _wire('33','2','bat_neg','12','p4',BLK,[{x:962.2973936429834,y:463.8791081151766}]),
+        {wireColor:'#ef4444',customThick:null,id:'a',fromNode:'1',fromPort:'pos',toNode:'2',toPort:'solar_pos',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#1f2937',customThick:null,id:'b',fromNode:'1',fromPort:'neg',toNode:'2',toPort:'solar_neg',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#6366f1',customThick:null,id:'c',fromNode:'3',fromPort:'ac_out',toNode:'4',toPort:'ac_in',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#ef4444',customThick:null,id:'23',fromNode:'7',fromPort:'dc_pos',toNode:'11',toPort:'p0',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#ef4444',customThick:null,id:'32',fromNode:'2',fromPort:'bat_pos',toNode:'11',toPort:'p1',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#1f2937',customThick:null,id:'33',fromNode:'2',fromPort:'bat_neg',toNode:'12',toPort:'p4',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#1f2937',customThick:null,id:'16',fromNode:'6',fromPort:'neg',toNode:'12',toPort:'p5',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#ef4444',customThick:null,id:'13',fromNode:'4',fromPort:'dc_pos',toNode:'11',toPort:'p3',amps:'',lenM:'',wireSize:'',waypoints:[{x:408.1199922778456,y:375.6750192866552},{x:408.1199922778456,y:434.6470109058249}],style:'click'},
+        {wireColor:'#ef4444',customThick:null,id:'13',fromNode:'6',fromPort:'pos',toNode:'5',toPort:'in',amps:'',lenM:'',wireSize:'',waypoints:[],style:'click'},
+        {wireColor:'#1f2937',customThick:null,id:'14',fromNode:'7',fromPort:'dc_neg',toNode:'12',toPort:'p2',amps:'',lenM:'',wireSize:'',waypoints:[{x:629.5,y:435.68709402283815},{x:629.5,y:502.5}],style:'click'},
+        {id:'13',fromNode:'4',fromPort:'dc_neg',toNode:'12',toPort:'p0',amps:'',lenM:'',wireSize:'',wireColor:'#1f2937',customThick:null,waypoints:[{x:615.3360902111531,y:335.6750192866552},{x:615.3360902111531,y:433.10312767740777}],style:'click'},
+        {id:'14',fromNode:'5',fromPort:'out',toNode:'11',toPort:'p5',amps:'',lenM:'',wireSize:'',wireColor:'#ef4444',customThick:null,waypoints:[],style:'click'},
       ]
     })
   },
@@ -956,8 +946,32 @@ function amazonQuery(node){
 //  Helpers
 // ═══════════════════════════════════════════════════════════════
 let _gid=1; const uid=()=>String(_gid++);
-// ノード読み込み後に uid カウンターを既存IDより大きい値に更新（ID衝突防止）
-function bumpGid(nodes){if(!nodes)return;const mx=nodes.reduce((m,n)=>{const v=parseInt(n.id,10);return isNaN(v)?m:Math.max(m,v)},0);if(mx>=_gid)_gid=mx+1;}
+// ノード/配線読み込み後に uid カウンターを既存IDより大きい値に更新（ID衝突防止）
+// nodes だけでなく conns も走査する（旧版は nodes のみ → 新規配線が既存配線IDと衝突する不具合があった）
+function bumpGid(nodes,conns){
+  const scan=arr=>{
+    if(!arr) return 0;
+    return arr.reduce((m,x)=>{const v=parseInt(x.id,10);return isNaN(v)?m:Math.max(m,v)},0);
+  };
+  const mx=Math.max(scan(nodes),scan(conns));
+  if(mx>=_gid)_gid=mx+1;
+}
+// 配線IDの衝突を解消（重複していたら新しいIDを割り当て）。元の順序は保持。
+function dedupeConnIds(conns){
+  if(!conns) return [];
+  const seen=new Set();
+  const out=[];
+  for(const c of conns){
+    let id=c.id;
+    if(id==null||seen.has(id)){
+      // 既存と被らない新IDを生成
+      do{ id=uid(); }while(seen.has(id));
+    }
+    seen.add(id);
+    out.push(id===c.id?c:{...c,id});
+  }
+  return out;
+}
 
 function snapToEdge(rawPx,rawPy,w,h){
   const cx=Math.max(0,Math.min(w,rawPx)), cy=Math.max(0,Math.min(h,rawPy));
@@ -2436,11 +2450,13 @@ function App(){
       if(raw){
         const d=JSON.parse(raw);
         const ns=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
-        const cs=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
+        bumpGid(ns,null);
+        const csRaw=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
+        const cs=dedupeConnIds(csRaw);
         if(d.nodes)setNodes(ns);
         if(d.conns)setConns(cs);
         if(d.systemV)setSystemV(d.systemV);
-        bumpGid(ns);
+        bumpGid(ns,cs);
         // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
         setWireStyle('click');
         // Initialize history with the loaded state (so undo doesn't go past initial load)
@@ -2508,12 +2524,19 @@ function App(){
         const d=JSON.parse(ev.target.result);
         const loadedNodes=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
         if(d.nodes)setNodes(loadedNodes);
-        if(d.conns)setConns(d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})));
+        // 先にカウンターをノード基準で更新してから配線IDの重複を解消（新IDが既存ノードIDと被らないように）
+        bumpGid(loadedNodes,null);
+        const rawConns=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
+        const loadedConns=dedupeConnIds(rawConns);
+        if(d.conns)setConns(loadedConns);
         if(d.systemV)setSystemV(d.systemV);
-        bumpGid(loadedNodes);
+        // 配線IDも考慮して再度カウンターを進める（以降の新規配線がぶつからないように）
+        bumpGid(loadedNodes,loadedConns);
         // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
         setWireStyle('click');
         setSelected(null); setPEN(null);
+        // 読込結果を履歴に登録（直後の Undo でキャンバスが空に戻らないように）
+        pushHist(loadedNodes,loadedConns);
         showToast('読み込みました');
       }catch(err){showToast('読み込みエラー');}
     };
@@ -3081,9 +3104,13 @@ function App(){
   // サンプル構成を読み込む
   const loadSample=(sample)=>{
     const data=sample.build();
+    // サンプル定義内に重複ID（過去JSON由来）が含まれていても安全に開けるよう、読込時に dedupe
+    // 先にノード基準でカウンターを進めてから dedupe（再採番IDがノードIDと重ならないように）
+    bumpGid(data.nodes,null);
+    const cleanConns=dedupeConnIds(data.conns);
     setNodes(data.nodes);
-    setConns(data.conns);
-    bumpGid(data.nodes);
+    setConns(cleanConns);
+    bumpGid(data.nodes,cleanConns);
     setSelected(null); setPEN(null);
     setPan({x:0,y:0}); setZoom(1);
     pushHist(data.nodes,data.conns);
