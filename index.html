@@ -911,6 +911,33 @@ const SAMPLES=[
       ]
     })
   },
+  {
+    key:'dcdc',label:'🚗 走行充電（DC-DC）',
+    desc:'車のオルタネーターから走行中にサブバッテリーを充電する定番構成',
+    spec:'7部品 / 9配線',
+    build:()=>({
+      nodes:[
+        {id:'1',type:'battery',x:60,y:80,props:{name:'メインバッテリー(車両)',voltage:12,ah:60,type:'鉛蓄電池'},portPositions:{}},
+        {id:'2',type:'fuse',x:300,y:76,props:{name:'ヒューズ(入力側)',amps:50,type:'ANL'},portPositions:{}},
+        {id:'3',type:'dc_dc',x:500,y:80,props:{name:'走行充電器(DC-DC)',inputV:12,outputV:12,maxA:30},portPositions:{}},
+        {id:'4',type:'fuse',x:740,y:76,props:{name:'ヒューズ(出力側)',amps:50,type:'ANL'},portPositions:{}},
+        {id:'5',type:'battery',x:960,y:80,rotation:180,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{}},
+        {id:'6',type:'inverter',x:950,y:300,props:{name:'インバーター',watts:500,type:'正弦波',inputV:12},portPositions:{}},
+        {id:'7',type:'ac_load',x:1180,y:320,props:{name:'AC機器',watts:300},portPositions:{}},
+      ],
+      conns:[
+        _wire('a','1','pos','2','in',RED),
+        _wire('b','2','out','3','in_pos',RED),
+        _wire('c','1','neg','3','in_neg',BLK),
+        _wire('d','3','out_pos','4','in',RED),
+        _wire('e','4','out','5','pos',RED),
+        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:210},{x:915,y:210}]),
+        _wire('g','5','pos','6','dc_pos',RED),
+        _wire('h','5','neg','6','dc_neg',BLK,[{x:880,y:250}]),
+        _wire('i','6','ac_out','7','ac_in',AC),
+      ]
+    })
+  },
 ];
 // ─────────────────────────────────────────────────────────────────
 // Amazon リンク設定（アソシエイトタグはオプション）
@@ -969,6 +996,35 @@ function bumpGid(nodes,conns){
   };
   const mx=Math.max(scan(nodes),scan(conns));
   if(mx>=_gid)_gid=mx+1;
+}
+// ────────── 共有URL（#d=...） ──────────
+// 回路JSONを deflate 圧縮して base64url 化。プレフィックス c=圧縮 / r=無圧縮フォールバック
+function _b64uFromBuf(buf){
+  const u8=new Uint8Array(buf); let s='';
+  for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function _bufFromB64u(s){
+  const b=atob(s.replace(/-/g,'+').replace(/_/g,'/'));
+  const u8=new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++)u8[i]=b.charCodeAt(i);
+  return u8;
+}
+async function encodeShareData(obj){
+  const bytes=new TextEncoder().encode(JSON.stringify(obj));
+  if(window.CompressionStream){
+    const buf=await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer();
+    return 'c'+_b64uFromBuf(buf);
+  }
+  return 'r'+_b64uFromBuf(bytes.buffer);
+}
+async function decodeShareData(s){
+  const mode=s[0], u8=_bufFromB64u(s.slice(1));
+  if(mode==='c'){
+    const buf=await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  return JSON.parse(new TextDecoder().decode(u8));
 }
 // 配線IDの衝突を解消（重複していたら新しいIDを割り当て）。元の順序は保持。
 function dedupeConnIds(conns){
@@ -1898,6 +1954,22 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
               </div>
               <div className="gc-big">{derived.wireSize}</div>
               <div className="gc-row"><span>AWG {res.awg}</span><span>最大 {res.maxA}A</span></div>
+              {(()=>{
+                // 実際の電圧降下: Vd = I × 2L / (56 × S)。基準3%以内。
+                const mm2=WIRE_SIZES.find(s=>s.label===derived.wireSize)?.mm2;
+                const wv=wireVoltage(conn,nodes,systemV);
+                if(!mm2||!derived.amps||!derived.lenM||!wv) return null;
+                const vd=(2*derived.lenM*derived.amps)/(56*mm2);
+                const pct=vd/wv*100;
+                const col=pct<=3?'#16a34a':pct<=5?'#d97706':'#dc2626';
+                const icon=pct<=3?'✅':pct<=5?'⚠':'❌';
+                return(
+                  <div className="gc-row" style={{marginTop:4,paddingTop:4,borderTop:'1px dashed #bae6fd'}}>
+                    <span>電圧降下</span>
+                    <span style={{color:col,fontWeight:700}}>{icon} {vd.toFixed(2)}V（{pct.toFixed(1)}%）</span>
+                  </div>
+                );
+              })()}
             </div>
             {res.maxA<derived.amps&&<div className="gc-warn">⚠ 最大サイズで選定しています</div>}
             <div className="prow" style={{marginTop:8}}>
@@ -2237,10 +2309,21 @@ function SimModal({nodes,onClose,embedded}){
 // ═══════════════════════════════════════════════════════════════
 //  BOM Modal
 // ═══════════════════════════════════════════════════════════════
-function BOMModal({nodes,connections,affiliateTag,onClose,embedded}){
+function BOMModal({nodes,connections,affiliateTag,systemV=12,onClose,embedded}){
   // 容量・仕様別にグループ化（同じ部品でも 100Ah と 200Ah は別行）
   const tally=useMemo(()=>{const m={};nodes.forEach(n=>{const d=COMP[n.type];const q=amazonQuery(n);const k=`${n.type}|${q}`;if(!m[k])m[k]={type:n.type,d,query:q,count:0,nodes:[]};m[k].count++;m[k].nodes.push(n);});return Object.values(m);},[nodes]);
-  const wireTally=useMemo(()=>{const m={};connections.forEach(c=>{const d=getDerivedWire(c,nodes,connections,12,null);if(d.wireSize)m[d.wireSize]=(m[d.wireSize]||0)+1;});return Object.entries(m).map(([s,n])=>({size:s,cnt:n}));},[connections,nodes]);
+  // サイズ別に本数と合計長(m)を集計。購入目安は端子処理・取り回し余裕をみて +20%
+  const wireTally=useMemo(()=>{
+    const m={};
+    connections.forEach(c=>{
+      const d=getDerivedWire(c,nodes,connections,systemV,null);
+      if(!d.wireSize) return;
+      if(!m[d.wireSize]) m[d.wireSize]={cnt:0,len:0};
+      m[d.wireSize].cnt++;
+      m[d.wireSize].len+=(+d.lenM||0); // ±は別配線として計上済みなので片道長を単純合計
+    });
+    return Object.entries(m).map(([s,v])=>({size:s,cnt:v.cnt,len:Math.round(v.len*10)/10,buy:Math.ceil(v.len*1.2*2)/2}));
+  },[connections,nodes,systemV]);
   const total=tally.reduce((s,t)=>s+t.d.priceEst*t.count,0);
   // 強化版CTAボタン: メインリンク + サブリンク（高評価/価格安い順）
   const renderAffCta=(query,price,count,key)=>{
@@ -2295,18 +2378,22 @@ function BOMModal({nodes,connections,affiliateTag,onClose,embedded}){
             {wireTally.length>0&&<>
               <div style={{fontWeight:700,fontSize:13,margin:'18px 0 10px'}}>🔌 配線材</div>
               <table className="bom-tbl bom-wire">
-                <thead><tr><th>電線サイズ</th><th>使用箇所</th><th style={{minWidth:160}}>Amazon で購入</th></tr></thead>
+                <thead><tr><th>電線サイズ</th><th>使用箇所 / 必要長</th><th style={{minWidth:160}}>Amazon で購入</th></tr></thead>
                 <tbody>{wireTally.map((w,i)=>{const mm2=w.size.replace('mm²','').trim();const a=WIRE_AFF.find(x=>x.mm2===mm2)||{q:`電線 ${w.size}`};return(
                   <tr key={i}>
                     <td><div style={{display:'flex',alignItems:'center',gap:10}}>
                       <ThumbBox icon={WIRE_THUMB.icon} color={WIRE_THUMB.color} bg={WIRE_THUMB.bg} label={w.size} size={42}/>
                       <span style={{fontWeight:600}}>{w.size}</span>
                     </div></td>
-                    <td>{w.cnt}箇所</td>
+                    <td>
+                      {w.cnt}箇所{w.len>0&&<> / 約{w.len}m</>}
+                      {w.len>0&&<div style={{fontSize:10,color:'#94a3b8'}}>購入目安 {w.buy}m（+20%余裕）</div>}
+                    </td>
                     <td>{renderAffCta(a.q,0,1,'w'+i)}</td>
                   </tr>
                 );})}</tbody>
               </table>
+              <div style={{fontSize:10,color:'#94a3b8',marginTop:4}}>※ 必要長は各配線の「ケーブル長」の合計。実測値の入力を推奨します（未入力は画面上の経路から概算）</div>
             </>}
             <div style={{fontWeight:700,fontSize:13,margin:'18px 0 10px'}}>🛠 工具・消耗品</div>
             <table className="bom-tbl bom-wire">
@@ -2350,7 +2437,7 @@ function BOMModal({nodes,connections,affiliateTag,onClose,embedded}){
   );
 }
 // チェック / 試算 / 部品一覧 を1つのモーダルにタブ統合した「設計レビュー」
-function ReviewModal({nodes,connections,affiliateTag,initialTab='check',onClose}){
+function ReviewModal({nodes,connections,affiliateTag,systemV=12,initialTab='check',onClose}){
   const[tab,setTab]=useState(initialTab);
   const badge=useMemo(()=>{
     const r=runChecks(nodes,connections);
@@ -2376,7 +2463,7 @@ function ReviewModal({nodes,connections,affiliateTag,initialTab='check',onClose}
         </div>
         {tab==='check'&&<CheckModal nodes={nodes} connections={connections} onClose={onClose} embedded/>}
         {tab==='sim'&&<SimModal nodes={nodes} onClose={onClose} embedded/>}
-        {tab==='bom'&&<BOMModal nodes={nodes} connections={connections} affiliateTag={affiliateTag} onClose={onClose} embedded/>}
+        {tab==='bom'&&<BOMModal nodes={nodes} connections={connections} affiliateTag={affiliateTag} systemV={systemV} onClose={onClose} embedded/>}
       </div>
     </div>
   );
@@ -2502,28 +2589,49 @@ function App(){
   useEffect(()=>{if(!isDeployed)localStorage.setItem('aff_tag',affTag);},[affTag,isDeployed]);
   useEffect(()=>{localStorage.setItem('offgrid_v3',JSON.stringify({nodes,conns,systemV,wireStyle}));},[nodes,conns,systemV,wireStyle]);
   useEffect(()=>{
+    // 共通: d(nodes/conns/systemV) を検証つきで反映
+    const applyDesign=d=>{
+      const ns=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
+      bumpGid(ns,null);
+      const csRaw=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
+      const cs=dedupeConnIds(csRaw);
+      if(d.nodes)setNodes(ns);
+      if(d.conns)setConns(cs);
+      if(d.systemV)setSystemV(d.systemV);
+      bumpGid(ns,cs);
+      // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
+      setWireStyle('click');
+      // Initialize history with the loaded state (so undo doesn't go past initial load)
+      hist.current=[{nodes:JSON.parse(JSON.stringify(ns)),conns:JSON.parse(JSON.stringify(cs))}];
+      histIdx.current=0;
+    };
+    // 1) 共有URL (#d=...) があれば最優先で読み込み
+    const m=location.hash.match(/^#d=([A-Za-z0-9_\-]+)$/);
+    if(m){
+      decodeShareData(m[1])
+        .then(d=>{applyDesign(d);showToast('共有された回路を読み込みました');})
+        .catch(()=>{showToast('共有リンクの読み込みに失敗しました');});
+      return;
+    }
+    // 2) 通常はローカル保存から復元
     try{
       const raw=localStorage.getItem('offgrid_v3')||localStorage.getItem('offgrid_v2');
-      if(raw){
-        const d=JSON.parse(raw);
-        const ns=d.nodes?d.nodes.map(n=>({...n,portPositions:n.portPositions||{}})):[];
-        bumpGid(ns,null);
-        const csRaw=d.conns?d.conns.map(c=>({wireColor:'#94a3b8',customThick:null,...c,waypoints:c.waypoints||(c.bendHandle?[c.bendHandle]:[]),bendHandle:undefined})):[];
-        const cs=dedupeConnIds(csRaw);
-        if(d.nodes)setNodes(ns);
-        if(d.conns)setConns(cs);
-        if(d.systemV)setSystemV(d.systemV);
-        bumpGid(ns,cs);
-        // 配線スタイルはクリックをデフォルトに（既存配線は c.style を尊重して描画）
-        setWireStyle('click');
-        // Initialize history with the loaded state (so undo doesn't go past initial load)
-        hist.current=[{nodes:JSON.parse(JSON.stringify(ns)),conns:JSON.parse(JSON.stringify(cs))}];
-        histIdx.current=0;
-      }
+      if(raw) applyDesign(JSON.parse(raw));
     }catch(e){}
   },[]);
 
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2000);};
+
+  // ── 共有リンク（回路データをURLハッシュに埋め込む。サーバー不要） ──
+  const shareLink=async()=>{
+    if(nodes.length===0){showToast('共有する回路がありません');return;}
+    try{
+      const enc=await encodeShareData({nodes,conns,systemV,wireStyle});
+      const url=`${location.origin}${location.pathname}#d=${enc}`;
+      await navigator.clipboard.writeText(url);
+      showToast(`共有リンクをコピーしました（${Math.round(url.length/100)/10}KB）`);
+    }catch(err){showToast('共有リンクの作成に失敗: '+err.message);}
+  };
 
   // ── JSON Save / Load ──
   const saveJSON=()=>{
@@ -3294,6 +3402,7 @@ function App(){
                 </label>
                 <button onClick={()=>{setFileMenu(false);exportPNG();}}>📤 PNG出力</button>
                 <button onClick={()=>{setFileMenu(false);exportPDF();}}>📤 PDF出力</button>
+                <button onClick={()=>{setFileMenu(false);shareLink();}}>🔗 共有リンクをコピー</button>
                 <div className="file-menu-sep"/>
                 <button onClick={()=>{setFileMenu(false);clearAll();}}>🗑 キャンバスをクリア</button>
                 {!isDeployed&&<button onClick={()=>{setFileMenu(false);setShowSett(true);}}>⚙ 設定</button>}
@@ -3550,7 +3659,7 @@ function App(){
           open={panOpen}/>
       </div>
 
-      {review&&<ReviewModal nodes={nodes} connections={conns} affiliateTag={affTag} initialTab={review} onClose={()=>setReview(null)}/>}
+      {review&&<ReviewModal nodes={nodes} connections={conns} affiliateTag={affTag} systemV={systemV} initialTab={review} onClose={()=>setReview(null)}/>}
       {showSett&&!isDeployed&&<SettModal affiliateTag={affTag} onSave={v=>{setAffTag(v);localStorage.setItem('aff_tag',v);}} onClose={()=>setShowSett(false)}/>}
       {toast&&<div className="toast">{toast}</div>}
       {confirmDlg&&(
