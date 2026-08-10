@@ -3161,6 +3161,8 @@ function App(){
   },[ix,nodes,portPreview]);
 
   const onCanvasClick=e=>{
+    // 背景ドラッグパン直後の click は選択解除として扱わない
+    if(panSuppressClickRef.current){panSuppressClickRef.current=false;return;}
     if(e.target===canvasRef.current||e.target.classList.contains('cvs-bg')||e.target.classList.contains('cvs-xform')||e.target.classList.contains('cvs-svg')||e.target.classList.contains('cvs-nodes')){
       // waypoint 追加は pointerup ハンドラで実施（タップ/ドラッグ共通）
       if(ix?.mode==='drawWire'&&ix.clickMode) return;
@@ -3215,7 +3217,15 @@ function App(){
   };
   // ピンチ・2本指パン制御
   const pinchRef=useRef(null); // {p1, p2, dist, mid, startZoom, startPan}
+  // 背景ドラッグによるパン（PC: マウス左ドラッグ / モバイル: 1本指ドラッグ）
+  const panDragRef=useRef(null); // {id, sx, sy, startPan, moved}
+  const panSuppressClickRef=useRef(false); // パン直後の click による選択解除を抑制
+  const isEmptyCanvasTarget=t=>t===canvasRef.current||['cvs-bg','cvs-xform','cvs-svg','cvs-nodes'].some(c=>t?.classList?.contains(c));
   const onCanvasPointerDown=e=>{
+    // 空きキャンバス上の押下 → パン開始候補（配線描画中・ノード操作中は除外）
+    if(!ixRef.current&&isEmptyCanvasTarget(e.target)&&(e.pointerType!=='mouse'||e.button===0)){
+      panDragRef.current={id:e.pointerId,sx:e.clientX,sy:e.clientY,startPan:{...panRef.current},moved:false};
+    }
     // 2点目のタッチで pinch モードに入る（1点目は通常のドラッグへ任せる）
     if(e.pointerType!=='touch') return;
     if(!pinchRef.current){
@@ -3231,6 +3241,8 @@ function App(){
         pinchRef.current.startPan={...panRef.current};
         // 2本指ジェスチャ参加中の pointerId を記録 → 描画 onUp 側で waypoint 追加を抑制
         pinchRef.current.pinched=new Set(pinchRef.current.pointers.keys());
+        // 1本指パンが進行中なら中断（ピンチ優先）
+        panDragRef.current=null;
         // 進行中の通常ドラッグを中断（ピンチ優先）。ただし クリックモード描画（手動再設定）中は保持
         const cur=ixRef.current;
         if(!(cur?.mode==='drawWire'&&cur.clickMode)){
@@ -3241,6 +3253,15 @@ function App(){
   };
   useEffect(()=>{
     const onMove=e=>{
+      // 背景ドラッグパン（マウス/タッチ共通・pinch より先に判定）
+      const pd=panDragRef.current;
+      if(pd&&e.pointerId===pd.id){
+        const dx=e.clientX-pd.sx, dy=e.clientY-pd.sy;
+        if(pd.moved||Math.abs(dx)>3||Math.abs(dy)>3){
+          pd.moved=true;
+          setPan({x:pd.startPan.x+dx,y:pd.startPan.y+dy});
+        }
+      }
       const pr=pinchRef.current; if(!pr||e.pointerType!=='touch') return;
       if(!pr.pointers.has(e.pointerId)) return;
       pr.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -3260,6 +3281,12 @@ function App(){
       }
     };
     const onUp=e=>{
+      const pd=panDragRef.current;
+      if(pd&&e.pointerId===pd.id){
+        // 実際にパンした場合は直後の click（選択解除）を抑制
+        if(pd.moved) panSuppressClickRef.current=true;
+        panDragRef.current=null;
+      }
       const pr=pinchRef.current; if(!pr) return;
       pr.pointers.delete(e.pointerId);
       if(pr.pointers.size===0) pinchRef.current=null;
