@@ -926,15 +926,17 @@ const SAMPLES=[
         {id:'2',type:'fuse',x:290,y:76,props:{name:'ヒューズ(入力側)',amps:50,type:'ANL'},portPositions:{}},
         {id:'3',type:'dc_dc',x:470,y:80,props:{name:'走行充電器(DC-DC)',inputV:12,outputV:12,maxA:30},portPositions:{}},
         {id:'4',type:'fuse',x:740,y:76,props:{name:'ヒューズ(出力側)',amps:50,type:'ANL'},portPositions:{}},
-        {id:'5',type:'battery',x:950,y:80,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{}},
+        {id:'5',type:'battery',x:950,y:80,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},
+          // 充電チェーンの終端なのでポートを左側に配置（配線が一直線になる）
+          portPositions:{pos:{px:0,py:22},neg:{px:0,py:60}}},
       ],
       conns:[
         _wire('a','1','pos','2','in',RED),
         _wire('b','2','out','3','in_pos',RED),
         _wire('c','1','neg','3','in_neg',BLK,[{x:430,y:140}]),
         _wire('d','3','out_pos','4','in',RED),
-        _wire('e','4','out','5','pos',RED,[{x:880,y:44},{x:1120,y:44},{x:1120,y:102}]),
-        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:190},{x:1150,y:190},{x:1150,y:140}]),
+        _wire('e','4','out','5','pos',RED),
+        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:140}]),
       ]
     })
   },
