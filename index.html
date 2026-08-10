@@ -70,6 +70,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e
 .port-edit-badge{position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#f59e0b;color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:70}
 /* Ports */
 .port{position:absolute;width:13px;height:13px;border-radius:50%;border:2px solid white;cursor:crosshair;z-index:20;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.2);transition:.1s}
+/* 見た目はそのまま、当たり判定だけ30pxに拡大（タッチ・マウスとも掴みやすく） */
+.port::after{content:'';position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%}
+/* 描画中、極性(色)が合わないポートは薄く表示 */
+.port.bad-target{opacity:.25}
 .port:hover{transform:translate(-50%,-50%) scale(1.5);box-shadow:0 0 0 3px rgba(59,130,246,.45)}
 .port.drawing-src{transform:translate(-50%,-50%) scale(1.5);box-shadow:0 0 0 4px rgba(251,191,36,.6)}
 .port.can-target{animation:portPulse .75s infinite}
@@ -1653,11 +1657,14 @@ function NodeEl({node,selected,isPortEdit,drawingWire,onMouseDown,onPortMouseDow
       {getNodePorts(node).map(pd=>{
         const pos=nodePortPos(node,pd.id);
         const isSrc=drawingWire?.nodeId===node.id&&drawingWire?.portId===pd.id;
-        const canTgt=drawingWire&&drawingWire.nodeId!==node.id;
+        // 極性（ポート色）が一致するものだけ接続候補としてハイライト、不一致は薄く表示
+        const compat=drawingWire&&(!drawingWire.srcColor||pd.color===drawingWire.srcColor);
+        const canTgt=drawingWire&&drawingWire.nodeId!==node.id&&compat;
+        const badTgt=drawingWire&&!isSrc&&!compat;
         const loff=portLabelOffset(pos.px,pos.py,nw,nh);
         return(
           <React.Fragment key={pd.id}>
-            <div className={`port${isSrc?' drawing-src':''}${canTgt?' can-target':''}${isPortEdit?' edit-mode':''}`}
+            <div className={`port${isSrc?' drawing-src':''}${canTgt?' can-target':''}${badTgt?' bad-target':''}${isPortEdit?' edit-mode':''}`}
               title={pd.label}
               style={{left:pos.px,top:pos.py,background:pd.color,cursor:isPortEdit?'move':'crosshair',touchAction:'none'}}
               data-node-id={node.id} data-port-id={pd.id}
@@ -2004,8 +2011,8 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
           <div>• 部品をパレットからドラッグ&amp;ドロップ</div>
           <div>• ポート(●)クリック → 配線開始</div>
           <div>• 別ポートクリック → 接続完了</div>
-          <div>• 部品本体をクリック or ESC → 描画キャンセル</div>
-          <div>• 空白をクリック → 中継点を追加</div>
+          <div>• 空白・部品本体をクリック or ESC → 描画キャンセル</div>
+          <div>• 空白をドラッグ → 画面を移動（パン）</div>
           <div>• 配線をタップ → 右パネルから色・太さ・削除</div>
           <div>• 配線を選択 → ⊕で中継点追加</div>
           <div>• 部品を選択 → 右下◤でリサイズ</div>
@@ -3126,15 +3133,21 @@ function App(){
           showToast('描画をキャンセルしました');
           return;
         }
-        // 空キャンバスで release → waypoint 追加
+        // 空キャンバスで release
         const dp=c2d(e.clientX,e.clientY);
         const ns=nodesRef.current;
         const startPort=portAbs(ns,curIx.nodeId,curIx.portId);
         if(startPort){
           const wps=curIx.waypoints||[];
-          const prev=wps.length>0?wps[wps.length-1]:startPort;
           // 開始ポート位置と同じならスキップ（最初の release）
           if(Math.abs(dp.x-startPort.x)<3&&Math.abs(dp.y-startPort.y)<3&&wps.length===0) return;
+          // 新規描画：空白で離したらキャンセル（シンプル化）。再設定モードのみ waypoint を追加
+          if(!curIx.replaceConnId){
+            setIx(null);setGhost(null);
+            showToast('配線をキャンセルしました');
+            return;
+          }
+          const prev=wps.length>0?wps[wps.length-1]:startPort;
           const snapped=snap90(prev,dp);
           setIx({...curIx,waypoints:[...wps,snapped]});
         }
@@ -3351,6 +3364,12 @@ function App(){
   };
   const clearAll=()=>{if(nodes.length===0&&conns.length===0)return;if(confirm('キャンバスをクリアしますか？')){setNodes([]);setConns([]);setSelected(null);setPEN(null);setIx(null);}};
 
+  // 描画開始ポートの色（極性）— NodeEl の接続候補ハイライトに使用
+  const drawSrcColor=useMemo(()=>{
+    if(ix?.mode!=='drawWire') return null;
+    const sn=nodes.find(n=>n.id===ix.nodeId);
+    return sn?(getNodePorts(sn).find(p=>p.id===ix.portId)?.color||null):null;
+  },[ix,nodes]);
   const ghostLine=useMemo(()=>{
     if(!ix||ix.mode!=='drawWire'||!ghostPos) return null;
     const startPort=portAbs(nodes,ix.nodeId,ix.portId);
@@ -3631,7 +3650,7 @@ function App(){
               <NodeEl key={n.id} node={n}
                 selected={selected?.type==='node'&&selected.id===n.id}
                 isPortEdit={portEditNode===n.id}
-                drawingWire={ix?.mode==='drawWire'?ix:null}
+                drawingWire={ix?.mode==='drawWire'?{...ix,srcColor:drawSrcColor}:null}
                 onMouseDown={onNodeMouseDown}
                 onPortMouseDown={onPortMouseDown}
                 onPortMouseUp={onPortMouseUp}
