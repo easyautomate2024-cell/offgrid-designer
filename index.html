@@ -2014,7 +2014,8 @@ function PropPanel({selected,nodes,connections,systemV,wireStyle,portEditNode,se
           <div>• 空白・部品本体をクリック or ESC → 描画キャンセル</div>
           <div>• 空白をドラッグ → 画面を移動（パン）</div>
           <div>• 配線をタップ → 右パネルから色・太さ・削除</div>
-          <div>• 配線を選択 → ⊕で中継点追加</div>
+          <div>• 配線のまっすぐな部分をドラッグ → 経路を平行移動</div>
+          <div>• 配線を選択 → ⊕で中継点追加、◇ドラッグで移動（Wクリックで削除）</div>
           <div>• 部品を選択 → 右下◤でリサイズ</div>
           <div>• 📱 スマホ: 配線を長押し → 再設定/削除メニュー</div>
           <div>• 🔍チェック → 電気的整合性を確認</div>
@@ -2831,14 +2832,20 @@ function App(){
     if(ix&&ix.mode!=='drawWire') return;
     const cs=connsRef.current; const ns=nodesRef.current;
     const conn=cs.find(c=>c.id===connId); if(!conn) return;
-    // セグメントのドラッグは ortho 自動ルーティングのみ対応（click 式は手動編集）
-    if((conn.style||'ortho')!=='ortho') return;
+    const cStyle=conn.style||'ortho';
+    if(cStyle!=='ortho'&&cStyle!=='click') return; // curve/straight は非対応
     const dp=c2d(e.clientX,e.clientY);
     const cx=dp.x, cy=dp.y;
     // 仮想pts（中継点なしの場合は描画上の角を含めて構築）
     const hasWps=conn.waypoints&&conn.waypoints.length>0;
     let virtualPts, needsConversion=false;
-    if(hasWps){
+    if(cStyle==='click'){
+      // クリック式：描画と同じコーナー挿入で経路を確定し、常に waypoints 化して扱う
+      const myPts=connPts(conn,ns); if(!myPts) return;
+      const r=clickPath(myPts); if(!r.segs.length) return;
+      virtualPts=[{x:r.segs[0].ax,y:r.segs[0].ay},...r.segs.map(s=>({x:s.bx,y:s.by}))];
+      needsConversion=true;
+    } else if(hasWps){
       virtualPts=connPts(conn,ns);
     } else {
       const prevSegs=[];
@@ -2880,7 +2887,7 @@ function App(){
     }
     if(!best||bestD>12) return;
     // ペンディングモードに入る（実際の変換は最初のドラッグ移動時に行う）
-    setIx({mode:'dragSegPending',connId,virtualPts,needsConversion,segInfo:best,startX:cx,startY:cy});
+    setIx({mode:'dragSegPending',connId,virtualPts,needsConversion,segInfo:best,startX:cx,startY:cy,ptype:e.pointerType});
   },[ix,wireStyle]);
 
   const onResizeMouseDown=useCallback((e,nodeId,curW,curH)=>{
@@ -2967,6 +2974,14 @@ function App(){
     const newConns=connsRef.current.map(c=>{if(c.id!==connId)return c;const wps=[...(c.waypoints||[])];wps.splice(wpIdx,1);return{...c,waypoints:wps};});
     setConns(newConns);pushHist(nodesRef.current,newConns);
   },[pushHist]);
+  // 選択配線の⊕から中継点を追加（fixed=描画コーナー列。click式は全コーナーを waypoints 化してから挿入）
+  const addWaypointAt=useCallback((connId,segIdx,pos,fixed)=>{
+    const newWps=fixed.slice(1,-1).map(p=>({x:p.x,y:p.y}));
+    newWps.splice(segIdx,0,{x:pos.x,y:pos.y});
+    const newConns=connsRef.current.map(c=>c.id===connId?{...c,waypoints:newWps}:c);
+    setConns(newConns);pushHist(nodesRef.current,newConns);
+    showToast('中継点を追加しました（◇ドラッグで移動 / ダブルクリックで削除）');
+  },[pushHist]);
 
   useEffect(()=>{
     const canvas=canvasRef.current;
@@ -2996,9 +3011,11 @@ function App(){
         setConns(prev=>prev.map(c=>{if(c.id!==ix.connId)return c;const wps=[...(c.waypoints||[])];wps[ix.wpIndex]={x:dp.x,y:dp.y};return{...c,waypoints:wps};}));
       } else if(ix.mode==='dragSegPending'){
         // 最初の移動を検出したら実際のドラッグモードに切替
+        // タッチは長押しメニューと共存させるため、発動しきい値を大きめに取る
+        const th=ix.ptype==='touch'?7:3;
         const cx=dp.x, cy=dp.y;
         const dx=cx-ix.startX, dy=cy-ix.startY;
-        if(Math.abs(dx)<3&&Math.abs(dy)<3) return;
+        if(Math.abs(dx)<th&&Math.abs(dy)<th) return;
         // 角を中継点として保存（必要なら）
         let newWps;
         if(ix.needsConversion){
@@ -3393,6 +3410,29 @@ function App(){
     return p?.color||'#ef4444';
   },[portPreview,nodes]);
 
+  // 選択中の配線の経路編集ハンドル（◇=中継点の移動/削除、⊕=中継点追加）
+  const selWireHandles=useMemo(()=>{
+    if(selected?.type!=='conn') return null;
+    if(ix&&ix.mode!=='moveBend') return null; // 他の操作中は非表示（◇ドラッグ中は表示継続）
+    const conn=conns.find(c=>c.id===selected.id); if(!conn) return null;
+    const cStyle=conn.style||'ortho';
+    if(cStyle!=='ortho'&&cStyle!=='click') return null;
+    const pts=connPts(conn,nodes); if(!pts) return null;
+    let fixed;
+    if(cStyle==='click'){
+      const r=clickPath(pts); if(!r.segs.length) return null;
+      fixed=[{x:r.segs[0].ax,y:r.segs[0].ay},...r.segs.map(s=>({x:s.bx,y:s.by}))];
+    } else {
+      fixed=pts;
+    }
+    const mids=[];
+    for(let i=0;i<fixed.length-1;i++){
+      const a=fixed[i],b=fixed[i+1];
+      if(Math.hypot(b.x-a.x,b.y-a.y)>=48) mids.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,seg:i});
+    }
+    return{connId:conn.id,wps:conn.waypoints||[],mids,fixed};
+  },[selected,conns,nodes,ix]);
+
   const edgeHighlight=useMemo(()=>{
     if(!portPreview||!ix||ix.mode!=='movePort') return null;
     const node=nodes.find(n=>n.id===ix.nodeId); if(!node) return null;
@@ -3543,11 +3583,15 @@ function App(){
                 return(
                   <g key={c.id} style={{touchAction:'none',userSelect:'none',WebkitUserSelect:'none',pointerEvents:isReplacing?'none':undefined}}
                     onPointerDown={e=>{
-                      // 長押し検出（500ms）→ 再設定/削除/キャンセル 3択モーダル
-                      // 長押し成立まで段ドラッグも選択も発動しない
+                      // セグメントドラッグ開始候補（マウス/タッチ共通・実際の発動は移動しきい値超過時）
+                      onWireSegMouseDown(e,c.id);
+                      // 長押し検出（500ms・タッチのみ）→ 再設定/削除/キャンセル 3択モーダル
+                      if(e.pointerType!=='touch') return;
                       const sx=e.clientX,sy=e.clientY;
                       let longPressed=false;
                       const tid=setTimeout(()=>{
+                        // セグメントドラッグが既に発動していたらメニューは出さない
+                        if(ixRef.current?.mode==='dragSeg') return;
                         longPressed=true;
                         wireLongPressRef.current=c.id; // クリック抑制フラグ
                         const delWire=()=>{
@@ -3565,7 +3609,7 @@ function App(){
                         };
                         setConfirmDlg({
                           title:'配線の操作',
-                          message:'この配線をどうしますか？（経路を手動で変更したい時は削除して引き直してください）',
+                          message:'この配線をどうしますか？（経路の微調整は、配線を選択して表示される ⊕/◇ ハンドルやセグメントのドラッグでもできます）',
                           buttons:[
                             {label:'キャンセル',outline:true,onClick:null},
                             {label:'⚡ 自動で再設定',color:'#16a34a',onClick:autoReset},
@@ -3601,7 +3645,7 @@ function App(){
                       };
                       setConfirmDlg({
                         title:'配線の操作',
-                        message:'この配線をどうしますか？（経路を手動で変更したい時は削除して引き直してください）',
+                        message:'この配線をどうしますか？（経路の微調整は、配線を選択して表示される ⊕/◇ ハンドルやセグメントのドラッグでもできます）',
                         buttons:[
                           {label:'キャンセル',outline:true,onClick:null},
                           {label:'⚡ 自動で再設定',color:'#16a34a',onClick:autoReset},
@@ -3673,6 +3717,20 @@ function App(){
               const node=nodes.find(n=>n.id===portPreview.nodeId); if(!node) return null;
               return<div className="port-ghost" style={{left:node.x+portPreview.px,top:node.y+portPreview.py,background:portPreviewColor}}/>;
             })()}
+            {/* 選択配線の経路編集ハンドル */}
+            {selWireHandles&&<>
+              {selWireHandles.wps.map((p,i)=>(
+                <div key={`swp-${i}`} className="wp-handle" style={{left:p.x,top:p.y}}
+                  title="ドラッグで移動 / ダブルクリックで削除"
+                  onPointerDown={e=>{e.stopPropagation();onBendMouseDown(e,selWireHandles.connId,i);}}
+                  onDoubleClick={e=>{e.stopPropagation();removeWaypoint(selWireHandles.connId,i);}}/>
+              ))}
+              {selWireHandles.mids.map((mp,i)=>(
+                <div key={`awp-${i}`} className="add-wp" style={{left:mp.x,top:mp.y}} title="中継点を追加"
+                  onPointerDown={e=>e.stopPropagation()}
+                  onClick={e=>{e.stopPropagation();addWaypointAt(selWireHandles.connId,mp.seg,{x:mp.x,y:mp.y},selWireHandles.fixed);}}>+</div>
+              ))}
+            </>}
           </div>
 
           {nodes.length===0&&(
