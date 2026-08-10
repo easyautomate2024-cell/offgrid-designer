@@ -914,32 +914,23 @@ const SAMPLES=[
   {
     key:'dcdc',label:'🚗 走行充電（DC-DC）',
     desc:'車のオルタネーターから走行中にサブバッテリーを充電する定番構成',
-    spec:'9部品 / 11配線',
+    spec:'5部品 / 6配線',
     build:()=>({
-      // バスバーを挟んで各ポート1配線とし、配線の交差・重複をなくしたレイアウト
+      // 走行充電の最小構成：メインバッテリー→ヒューズ→DC-DC→ヒューズ→サブバッテリーの直列
       nodes:[
         {id:'1',type:'battery',x:60,y:80,props:{name:'メインバッテリー(車両)',voltage:12,ah:60,type:'鉛蓄電池'},portPositions:{}},
-        {id:'2',type:'fuse',x:300,y:76,props:{name:'ヒューズ(入力側)',amps:50,type:'ANL'},portPositions:{}},
-        {id:'3',type:'dc_dc',x:500,y:80,props:{name:'走行充電器(DC-DC)',inputV:12,outputV:12,maxA:30},portPositions:{}},
+        {id:'2',type:'fuse',x:290,y:76,props:{name:'ヒューズ(入力側)',amps:50,type:'ANL'},portPositions:{}},
+        {id:'3',type:'dc_dc',x:470,y:80,props:{name:'走行充電器(DC-DC)',inputV:12,outputV:12,maxA:30},portPositions:{}},
         {id:'4',type:'fuse',x:740,y:76,props:{name:'ヒューズ(出力側)',amps:50,type:'ANL'},portPositions:{}},
-        {id:'5',type:'bus_pos',x:960,y:140,rotation:90,props:{name:'バスバー (+)',maxA:150,portCount:6},portPositions:{}},
-        {id:'6',type:'bus_neg',x:1100,y:140,rotation:90,props:{name:'バスバー (−)',maxA:150,portCount:6},portPositions:{}},
-        {id:'7',type:'battery',x:1260,y:80,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{}},
-        {id:'8',type:'inverter',x:940,y:420,props:{name:'インバーター',watts:500,type:'正弦波',inputV:12},portPositions:{}},
-        {id:'9',type:'ac_load',x:1200,y:440,props:{name:'AC機器',watts:300},portPositions:{}},
+        {id:'5',type:'battery',x:950,y:80,props:{name:'サブバッテリー',voltage:12,ah:100,type:'LiFePO4'},portPositions:{}},
       ],
       conns:[
         _wire('a','1','pos','2','in',RED),
         _wire('b','2','out','3','in_pos',RED),
-        _wire('c','1','neg','3','in_neg',BLK),
+        _wire('c','1','neg','3','in_neg',BLK,[{x:430,y:140}]),
         _wire('d','3','out_pos','4','in',RED),
-        _wire('e','4','out','5','p3',RED,[{x:930,y:170}]),
-        _wire('f','3','out_neg','6','p1',BLK,[{x:660,y:560},{x:1420,y:560},{x:1420,y:230}]),
-        _wire('g','5','p0','7','pos',RED,[{x:1004,y:60},{x:1430,y:60},{x:1430,y:102}]),
-        _wire('i','6','p0','7','neg',BLK,[{x:1460,y:170},{x:1460,y:140}]),
-        _wire('h','5','p5','8','dc_pos',RED,[{x:880,y:290},{x:880,y:444}]),
-        _wire('j','6','p2','8','dc_neg',BLK,[{x:1350,y:290},{x:1350,y:540},{x:900,y:540},{x:900,y:475}]),
-        _wire('k','8','ac_out','9','ac_in',AC),
+        _wire('e','4','out','5','pos',RED,[{x:880,y:44},{x:1120,y:44},{x:1120,y:102}]),
+        _wire('f','3','out_neg','5','neg',BLK,[{x:700,y:190},{x:1150,y:190},{x:1150,y:140}]),
       ]
     })
   },
